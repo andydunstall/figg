@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"net"
 	"net/http"
 
 	"github.com/andydunstall/wombat/pkg/broker"
@@ -14,6 +16,7 @@ type Server struct {
 	router   *mux.Router
 	broker   *broker.Broker
 	upgrader websocket.Upgrader
+	srv      *http.Server
 	logger   *zap.Logger
 }
 
@@ -93,12 +96,17 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) Listen(addr string) error {
-	s.logger.Info(
-		"starting server",
-		zap.String("addr", addr),
-	)
+func (s *Server) Serve(lis net.Listener) error {
+	srv := &http.Server{
+		Handler: s.router,
+	}
+	s.srv = srv
+	return srv.Serve(lis)
+}
 
-	http.Handle("/", s.router)
-	return http.ListenAndServe(addr, nil)
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.srv == nil {
+		return nil
+	}
+	return s.srv.Shutdown(ctx)
 }
