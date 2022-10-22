@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/andydunstall/wombat/pkg/broker"
 	"github.com/gorilla/mux"
@@ -23,7 +24,10 @@ type Server struct {
 func NewServer(logger *zap.Logger) *Server {
 	router := mux.NewRouter()
 
-	upgrader := websocket.Upgrader{}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
 	s := &Server{
 		router:   router,
 		broker:   broker.NewBroker(),
@@ -98,7 +102,10 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Serve(lis net.Listener) error {
 	srv := &http.Server{
-		Handler: s.router,
+		Handler:      s.router,
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
 	}
 	s.srv = srv
 	return srv.Serve(lis)
