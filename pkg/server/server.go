@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/andydunstall/wombat/pkg/broker"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -10,6 +11,7 @@ import (
 
 type Server struct {
 	router   *mux.Router
+	broker   *broker.Broker
 	upgrader websocket.Upgrader
 	logger   *zap.Logger
 }
@@ -20,6 +22,7 @@ func NewServer(logger *zap.Logger) *Server {
 	upgrader := websocket.Upgrader{}
 	s := &Server{
 		router:   router,
+		broker:   broker.NewBroker(),
 		upgrader: upgrader,
 		logger:   logger,
 	}
@@ -39,16 +42,20 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
+	addr := c.RemoteAddr().String()
+	s.logger.Debug("ws stream connected", zap.String("addr", addr))
+
+	topic := s.broker.GetTopic()
+	topic.Subscribe(addr, c)
+	defer topic.Unsubscribe(addr)
+
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
 			s.logger.Debug("failed to read from ws connection", zap.Error(err))
-			break
+			return
 		}
-		if err = c.WriteMessage(mt, message); err != nil {
-			s.logger.Debug("failed to write to ws connection", zap.Error(err))
-			break
-		}
+		topic.Publish(mt, message)
 	}
 }
 
