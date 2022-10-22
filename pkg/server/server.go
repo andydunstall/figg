@@ -65,38 +65,40 @@ func (s *Server) restPublish(w http.ResponseWriter, r *http.Request) {
 	b := buf.Bytes()
 
 	topic := s.broker.GetTopic(topicName)
-	topic.Publish(websocket.BinaryMessage, b)
+	topic.Publish(b)
 }
 
 func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	reqVars := mux.Vars(r)
 	topicName := reqVars["topic"]
 
-	c, err := s.upgrader.Upgrade(w, r, nil)
+	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.logger.Debug("failed to upgrade connection", zap.Error(err))
 		return
 	}
-	defer c.Close()
+	defer ws.Close()
 
-	addr := c.RemoteAddr().String()
+	addr := ws.RemoteAddr().String()
 	s.logger.Debug(
 		"ws stream connected",
 		zap.String("topic", topicName),
 		zap.String("addr", addr),
 	)
 
+	sub := NewWSSubscriber(ws)
+
 	topic := s.broker.GetTopic(topicName)
-	topic.Subscribe(c)
-	defer topic.Unsubscribe(c)
+	topic.Subscribe(sub)
+	defer topic.Unsubscribe(sub)
 
 	for {
-		mt, message, err := c.ReadMessage()
+		_, message, err := ws.ReadMessage()
 		if err != nil {
 			s.logger.Debug("failed to read from ws connection", zap.Error(err))
 			return
 		}
-		topic.Publish(mt, message)
+		topic.Publish(message)
 	}
 }
 

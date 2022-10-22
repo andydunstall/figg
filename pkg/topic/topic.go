@@ -2,41 +2,39 @@ package topic
 
 import (
 	"sync"
-
-	"github.com/gorilla/websocket"
 )
 
 type Topic struct {
-	subscribers map[*websocket.Conn]interface{}
+	subscribers map[Subscriber]interface{}
 	mu          sync.Mutex
 }
 
 func NewTopic() *Topic {
 	return &Topic{
-		subscribers: map[*websocket.Conn]interface{}{},
+		subscribers: map[Subscriber]interface{}{},
 		mu:          sync.Mutex{},
 	}
 }
 
-func (t *Topic) Publish(mt int, b []byte) {
+func (t *Topic) Publish(b []byte) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	for sub, _ := range t.subscribers {
-		sub.WriteMessage(mt, b)
+		sub.Notify(b)
 	}
 }
 
-func (t *Topic) Subscribe(conn *websocket.Conn) {
+func (t *Topic) Subscribe(sub Subscriber) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.subscribers[conn] = struct{}{}
+	t.subscribers[sub] = struct{}{}
 }
 
-func (t *Topic) Unsubscribe(conn *websocket.Conn) {
+func (t *Topic) Unsubscribe(sub Subscriber) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	delete(t.subscribers, conn)
+	delete(t.subscribers, sub)
 }
