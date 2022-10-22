@@ -87,8 +87,8 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	)
 
 	topic := s.broker.GetTopic(topicName)
-	topic.Subscribe(addr, c)
-	defer topic.Unsubscribe(addr)
+	topic.Subscribe(c)
+	defer topic.Unsubscribe(c)
 
 	for {
 		mt, message, err := c.ReadMessage()
