@@ -31,10 +31,13 @@ func NewServer(logger *zap.Logger) *Server {
 }
 
 func (s *Server) addRoutes() {
-	s.router.HandleFunc("/v1/ws/stream", s.wsStream).Methods(http.MethodGet)
+	s.router.HandleFunc("/v1/ws/{topic}", s.wsStream).Methods(http.MethodGet)
 }
 
 func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
+	reqVars := mux.Vars(r)
+	topicName := reqVars["topic"]
+
 	c, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.logger.Debug("failed to upgrade connection", zap.Error(err))
@@ -45,7 +48,7 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	addr := c.RemoteAddr().String()
 	s.logger.Debug("ws stream connected", zap.String("addr", addr))
 
-	topic := s.broker.GetTopic()
+	topic := s.broker.GetTopic(topicName)
 	topic.Subscribe(addr, c)
 	defer topic.Unsubscribe(addr)
 

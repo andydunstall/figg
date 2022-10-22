@@ -7,20 +7,25 @@ import (
 )
 
 type Broker struct {
-	topic *topic.Topic
-	mu    sync.Mutex
+	topics map[string]*topic.Topic
+	mu     sync.Mutex
 }
 
 func NewBroker() *Broker {
 	return &Broker{
-		topic: topic.NewTopic(),
-		mu:    sync.Mutex{},
+		topics: map[string]*topic.Topic{},
+		mu:     sync.Mutex{},
 	}
 }
 
-func (b *Broker) GetTopic() *topic.Topic {
+func (b *Broker) GetTopic(name string) *topic.Topic {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.topic
+	if topic, ok := b.topics[name]; ok {
+		return topic
+	}
+	topic := topic.NewTopic()
+	b.topics[name] = topic
+	return topic
 }
