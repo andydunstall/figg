@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/andydunstall/wombat/pkg/broker"
@@ -31,7 +32,33 @@ func NewServer(logger *zap.Logger) *Server {
 }
 
 func (s *Server) addRoutes() {
-	s.router.HandleFunc("/v1/ws/{topic}", s.wsStream).Methods(http.MethodGet)
+	s.router.HandleFunc("/v1/{topic}", s.restPublish).Methods(http.MethodPost)
+	s.router.HandleFunc("/v1/{topic}/ws", s.wsStream).Methods(http.MethodGet)
+}
+
+func (s *Server) restPublish(w http.ResponseWriter, r *http.Request) {
+	reqVars := mux.Vars(r)
+	topicName := reqVars["topic"]
+
+	if r.Body == nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	addr := r.RemoteAddr
+	s.logger.Debug(
+		"rest publish",
+		zap.String("topic", topicName),
+		zap.String("addr", addr),
+	)
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	b := buf.Bytes()
+
+	topic := s.broker.GetTopic(topicName)
+	topic.Publish(websocket.BinaryMessage, b)
 }
 
 func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +73,11 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	addr := c.RemoteAddr().String()
-	s.logger.Debug("ws stream connected", zap.String("addr", addr))
+	s.logger.Debug(
+		"ws stream connected",
+		zap.String("topic", topicName),
+		zap.String("addr", addr),
+	)
 
 	topic := s.broker.GetTopic(topicName)
 	topic.Subscribe(addr, c)
