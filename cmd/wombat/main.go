@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/andydunstall/wombat/pkg/config"
+	"github.com/andydunstall/wombat/pkg/server"
 	"go.uber.org/zap"
 )
 
@@ -31,4 +32,7 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("starting wombat")
+
+	server := server.NewServer(logger)
+	log.Fatal(server.Listen(config.Addr))
 }
