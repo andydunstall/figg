@@ -21,8 +21,8 @@ func postMessage(addr string, topic string, message string) error {
 	return nil
 }
 
-func createWS(addr string, topic string) (*websocket.Conn, error) {
-	url := fmt.Sprintf("ws://%s/v1/%s/ws", addr, "foo")
+func createWS(addr string, topic string, query string) (*websocket.Conn, error) {
+	url := fmt.Sprintf("ws://%s/v1/%s/ws?%s", addr, "foo", query)
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	return ws, err
 }

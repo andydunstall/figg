@@ -5,9 +5,11 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/andydunstall/wombat/pkg/broker"
+	"github.com/andydunstall/wombat/pkg/topic"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -64,8 +66,8 @@ func (s *Server) restPublish(w http.ResponseWriter, r *http.Request) {
 	buf.ReadFrom(r.Body)
 	b := buf.Bytes()
 
-	topic := s.broker.GetTopic(topicName)
-	topic.Publish(b)
+	t := s.broker.GetTopic(topicName)
+	t.Publish(b)
 }
 
 func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
@@ -84,21 +86,33 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		"ws stream connected",
 		zap.String("topic", topicName),
 		zap.String("addr", addr),
+		zap.String("offset", r.URL.Query().Get("offset")),
 	)
 
-	sub := NewWSSubscriber(ws)
-
-	topic := s.broker.GetTopic(topicName)
-	topic.Subscribe(sub)
-	defer topic.Unsubscribe(sub)
+	t := s.broker.GetTopic(topicName)
+	conn := NewWSConn(ws)
+	var sub *topic.Subscription
+	if r.URL.Query().Get("offset") != "" {
+		offset, err := strconv.ParseUint(r.URL.Query().Get("offset"), 10, 64)
+		if err != nil {
+			s.logger.Debug("invalid offset param", zap.Error(err))
+			// Fall back to the latest message if the offset is invalid.
+			sub = topic.NewSubscription(t, conn)
+		} else {
+			sub = topic.NewSubscriptionWithOffset(t, conn, offset)
+		}
+	} else {
+		sub = topic.NewSubscription(t, conn)
+	}
+	defer sub.Shutdown()
 
 	for {
-		_, message, err := ws.ReadMessage()
+		b, err := conn.Recv()
 		if err != nil {
-			s.logger.Debug("failed to read from ws connection", zap.Error(err))
+			s.logger.Debug("failed to read from connection", zap.Error(err))
 			return
 		}
-		topic.Publish(message)
+		t.Publish(b)
 	}
 }
 
