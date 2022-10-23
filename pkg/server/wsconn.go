@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/binary"
+
 	"github.com/andydunstall/wombat/pkg/topic"
 	"github.com/gorilla/websocket"
 )
@@ -16,8 +18,12 @@ func NewWSConn(ws *websocket.Conn) topic.Conn {
 }
 
 func (c *WSConn) Send(offset uint64, m []byte) error {
-	// TODO(AD) prepend 8 byte offset
-	return c.ws.WriteMessage(websocket.BinaryMessage, m)
+	b := make([]byte, 8+len(m))
+	binary.BigEndian.PutUint64(b, offset)
+	for i := 0; i != len(m); i++ {
+		b[i+8] = m[i]
+	}
+	return c.ws.WriteMessage(websocket.BinaryMessage, b)
 }
 
 func (c *WSConn) Recv() ([]byte, error) {

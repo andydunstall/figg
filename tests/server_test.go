@@ -26,9 +26,10 @@ func TestServer_PublishAndSubscribe(t *testing.T) {
 
 	// Verify we received the messages on the websocket subscription.
 	for i := 0; i != 10; i++ {
-		message, _, err := client.Recv()
+		message, offset, err := client.Recv()
 		assert.Nil(t, err)
 		assert.Equal(t, fmt.Sprintf("%d", i), string(message))
+		assert.Equal(t, uint64(i+1), offset)
 	}
 }
 
@@ -56,8 +57,9 @@ func TestServer_PublishAndSubscribeFromOffset(t *testing.T) {
 
 	// Verify we received the messages on the websocket subscription.
 	for i := 0; i != 10; i++ {
-		message, _, err := client.Recv()
+		message, offset, err := client.Recv()
 		assert.Nil(t, err)
 		assert.Equal(t, fmt.Sprintf("%d", i), string(message))
+		assert.Equal(t, uint64(i+1), offset)
 	}
 }

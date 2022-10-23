@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net/http"
 	"strings"
@@ -41,7 +42,9 @@ func (c *WSClient) Recv() ([]byte, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	return message, 0, nil
+	offset := binary.BigEndian.Uint64(message)
+	b := message[8:]
+	return b, offset, nil
 }
 
 func (c *WSClient) Close() {
