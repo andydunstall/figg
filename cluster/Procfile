@@ -1,0 +1,3 @@
+node1: go run cmd/wombat/main.go --gossip.peer=peer-1 --addr=127.0.0.1:7000 --gossip.addr=127.0.0.1:7001 --gossip.seeds=127.0.0.1:7001 -v
+node2: go run cmd/wombat/main.go --gossip.peer=peer-2 --addr=127.0.0.1:8000 --gossip.addr=127.0.0.1:8001 --gossip.seeds=127.0.0.1:7001 -v
+node3: go run cmd/wombat/main.go --gossip.peer=peer-3 --addr=127.0.0.1:9000 --gossip.addr=127.0.0.1:9001 --gossip.seeds=127.0.0.1:7001 -v

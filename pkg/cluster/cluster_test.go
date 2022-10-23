@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestCluster_Locate(t *testing.T) {
-	c := NewCluster("peer-local")
+	c := NewCluster("peer-local", zap.NewNop())
 	for i := 0; i != 10; i++ {
 		c.NotifyJoin(fmt.Sprintf("peer-%d", i))
 	}

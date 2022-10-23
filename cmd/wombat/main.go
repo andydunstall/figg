@@ -6,8 +6,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	"github.com/andydunstall/scuttlebutt"
+	"github.com/andydunstall/wombat/pkg/cluster"
 	"github.com/andydunstall/wombat/pkg/config"
 	"github.com/andydunstall/wombat/pkg/server"
 	"go.uber.org/zap"
@@ -27,7 +30,7 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 func main() {
 	config, err := config.ParseConfig()
 	if err != nil {
-		log.Fatalf("failed to parse config")
+		log.Fatalf("failed to parse config: %s", err)
 	}
 
 	logger, err := setupLogger(config.Verbose)
@@ -37,6 +40,22 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("starting wombat")
+
+	cluster := cluster.NewCluster(config.GossipPeerID, logger)
+	gossip, err := scuttlebutt.Create(&scuttlebutt.Config{
+		ID:             config.GossipPeerID,
+		BindAddr:       config.GossipAddr,
+		NodeSubscriber: cluster,
+		Logger:         logger.With(zap.String("tag", "gossip")),
+	})
+	if err != nil {
+		logger.Fatal("failed to setup gossip", zap.Error(err))
+	}
+	defer gossip.Shutdown()
+
+	if config.GossipSeeds != "" {
+		gossip.Seed(strings.Split(config.GossipSeeds, ","))
+	}
 
 	server := server.NewServer(logger)
 
