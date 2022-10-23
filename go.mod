@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/jessevdk/go-flags v1.5.0
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.23.0
 )
