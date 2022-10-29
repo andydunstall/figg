@@ -1,7 +1,7 @@
 package conn
 
 type Connection interface {
-	Send(offset uint64, m []byte) error
-	Recv() ([]byte, error)
+	Send(m *ProtocolMessage) error
+	Recv() (*ProtocolMessage, error)
 	Close() error
 }

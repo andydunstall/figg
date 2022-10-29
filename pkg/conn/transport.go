@@ -1,7 +1,7 @@
 package conn
 
 type Transport interface {
-	Send(b []byte) error
-	Recv() ([]byte, error)
+	Send(m *ProtocolMessage) error
+	Recv() (*ProtocolMessage, error)
 	Close() error
 }

@@ -5,24 +5,21 @@ import (
 )
 
 type FakeConnection struct {
-	Sent chan Message
+	Sent chan *ProtocolMessage
 }
 
 func NewFakeConnection() *FakeConnection {
 	return &FakeConnection{
-		Sent: make(chan Message),
+		Sent: make(chan *ProtocolMessage),
 	}
 }
 
-func (c *FakeConnection) Send(offset uint64, m []byte) error {
-	c.Sent <- Message{
-		Offset:  offset,
-		Message: m,
-	}
+func (c *FakeConnection) Send(m *ProtocolMessage) error {
+	c.Sent <- m
 	return nil
 }
 
-func (c *FakeConnection) Recv() ([]byte, error) {
+func (c *FakeConnection) Recv() (*ProtocolMessage, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 

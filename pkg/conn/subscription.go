@@ -7,11 +7,6 @@ import (
 	"github.com/andydunstall/wombat/pkg/topic"
 )
 
-type Message struct {
-	Offset  uint64
-	Message []byte
-}
-
 // Subscription reads messages from the topic and sends to the connection.
 type Subscription struct {
 	topic *topic.Topic
@@ -84,10 +79,18 @@ func (s *Subscription) sendLoop() {
 				break
 			}
 
+			protocolMessage := &ProtocolMessage{
+				Type: TypeTopicMessage,
+				TopicMessage: &TopicMessage{
+					Offset:  offset,
+					Message: m,
+				},
+			}
+
 			// Only update the offset once its been sent to the subscriber. If
 			// the connection closes expect the read loop to close the
 			// subscriber and the client can resume from the last offset.
-			if err := s.conn.Send(offset, m); err != nil {
+			if err := s.conn.Send(protocolMessage); err != nil {
 				break
 			} else {
 				s.lastOffset = offset

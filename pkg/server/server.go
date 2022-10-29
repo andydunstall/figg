@@ -110,12 +110,19 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	defer sub.Shutdown()
 
 	for {
-		b, err := c.Recv()
+		m, err := c.Recv()
 		if err != nil {
 			s.logger.Debug("failed to read from connection", zap.Error(err))
 			return
 		}
-		t.Publish(b)
+		switch m.Type {
+		case conn.TypePublishMessage:
+			if m.PublishMessage == nil {
+				s.logger.Debug("invalid message receoved; missing publish message")
+				return
+			}
+			t.Publish(m.PublishMessage.Message)
+		}
 	}
 }
 

@@ -14,16 +14,25 @@ func NewWSTransport(ws *websocket.Conn) Transport {
 	}
 }
 
-func (t *WSTransport) Send(b []byte) error {
+func (t *WSTransport) Send(m *ProtocolMessage) error {
+	b, err := m.Encode()
+	if err != nil {
+		return err
+	}
 	return t.ws.WriteMessage(websocket.BinaryMessage, b)
 }
 
-func (t *WSTransport) Recv() ([]byte, error) {
+func (t *WSTransport) Recv() (*ProtocolMessage, error) {
 	_, b, err := t.ws.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
+
+	m, err := ProtocolMessageFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (t *WSTransport) Close() error {

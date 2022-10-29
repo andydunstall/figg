@@ -1,12 +1,16 @@
 package client
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
+
+	"github.com/andydunstall/wombat/pkg/conn"
+	"github.com/gorilla/websocket"
 )
 
 type Wombat struct {
-	conn       Connection
+	transport  conn.Transport
 	messagesCh chan []byte
 
 	wg       sync.WaitGroup
@@ -14,12 +18,14 @@ type Wombat struct {
 }
 
 func NewWombat(addr string, topic string) (*Wombat, error) {
-	conn, err := WSConnect(addr, topic, 0)
+	url := fmt.Sprintf("ws://%s/v1/%s/ws", addr, topic)
+	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	wombat := &Wombat{
-		conn:       conn,
+		transport:  conn.NewWSTransport(ws),
 		messagesCh: make(chan []byte),
 		wg:         sync.WaitGroup{},
 		shutdown:   0,
@@ -38,7 +44,7 @@ func (w *Wombat) MessagesCh() <-chan []byte {
 func (w *Wombat) Shutdown() {
 	atomic.StoreInt32(&w.shutdown, 1)
 
-	w.conn.Close()
+	w.transport.Close()
 	// Block until all the listener threads have stopped.
 	w.wg.Wait()
 }
@@ -46,15 +52,16 @@ func (w *Wombat) Shutdown() {
 func (w *Wombat) readLoop() {
 	defer w.wg.Done()
 	for {
-		b, err := w.conn.Recv()
+		m, err := w.transport.Recv()
 		if err != nil {
 			// If we've been shutdown ignore the error.
 			if s := atomic.LoadInt32(&w.shutdown); s == 1 {
 				return
 			}
 		}
-
-		msg := b[8:]
-		w.messagesCh <- msg
+		switch m.Type {
+		case conn.TypeTopicMessage:
+			w.messagesCh <- m.TopicMessage.Message
+		}
 	}
 }

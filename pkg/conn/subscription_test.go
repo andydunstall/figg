@@ -17,17 +17,26 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 	topic.Publish([]byte("bar"))
 	topic.Publish([]byte("car"))
 
-	assert.Equal(t, Message{
-		Offset:  1,
-		Message: []byte("foo"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  1,
+			Message: []byte("foo"),
+		},
 	}, <-conn.Sent)
-	assert.Equal(t, Message{
-		Offset:  2,
-		Message: []byte("bar"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  2,
+			Message: []byte("bar"),
+		},
 	}, <-conn.Sent)
-	assert.Equal(t, Message{
-		Offset:  3,
-		Message: []byte("car"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  3,
+			Message: []byte("car"),
+		},
 	}, <-conn.Sent)
 }
 
@@ -46,20 +55,32 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 	topic.Publish([]byte("baz"))
 	topic.Publish([]byte("car"))
 
-	assert.Equal(t, Message{
-		Offset:  1,
-		Message: []byte("foo"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  1,
+			Message: []byte("foo"),
+		},
 	}, <-conn.Sent)
-	assert.Equal(t, Message{
-		Offset:  2,
-		Message: []byte("bar"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  2,
+			Message: []byte("bar"),
+		},
 	}, <-conn.Sent)
-	assert.Equal(t, Message{
-		Offset:  3,
-		Message: []byte("baz"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  3,
+			Message: []byte("baz"),
+		},
 	}, <-conn.Sent)
-	assert.Equal(t, Message{
-		Offset:  4,
-		Message: []byte("car"),
+	assert.Equal(t, &ProtocolMessage{
+		Type: TypeTopicMessage,
+		TopicMessage: &TopicMessage{
+			Offset:  4,
+			Message: []byte("car"),
+		},
 	}, <-conn.Sent)
 }
