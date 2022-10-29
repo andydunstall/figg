@@ -37,6 +37,15 @@ func NewWombat(addr string, topic string) (*Wombat, error) {
 	return wombat, nil
 }
 
+func (w *Wombat) Publish(b []byte) error {
+	return w.transport.Send(&conn.ProtocolMessage{
+		Type: conn.TypePublishMessage,
+		PublishMessage: &conn.PublishMessage{
+			Message: b,
+		},
+	})
+}
+
 func (w *Wombat) MessagesCh() <-chan []byte {
 	return w.messagesCh
 }

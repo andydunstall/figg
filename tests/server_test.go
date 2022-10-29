@@ -20,9 +20,8 @@ func TestServer_PublishAndSubscribe(t *testing.T) {
 	assert.Nil(t, err)
 	defer client.Shutdown()
 
-	// Publish via REST.
 	for i := 0; i != 10; i++ {
-		assert.Nil(t, postMessage(addr, "foo", fmt.Sprintf("%d", i)))
+		assert.Nil(t, client.Publish([]byte(fmt.Sprintf("%d", i))))
 	}
 
 	// Verify we received the messages on the websocket subscription.
