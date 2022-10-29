@@ -1,12 +1,9 @@
 package tests
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/websocket"
 )
 
 func postMessage(addr string, topic string, message string) error {
@@ -20,33 +17,4 @@ func postMessage(addr string, topic string, message string) error {
 		return fmt.Errorf("unexpected status code: %d", r.StatusCode)
 	}
 	return nil
-}
-
-type WSClient struct {
-	ws *websocket.Conn
-}
-
-func WSClientConnect(addr string, topic string, query string) (*WSClient, error) {
-	url := fmt.Sprintf("ws://%s/v1/%s/ws?%s", addr, "foo", query)
-	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &WSClient{
-		ws: ws,
-	}, nil
-}
-
-func (c *WSClient) Recv() ([]byte, uint64, error) {
-	_, message, err := c.ws.ReadMessage()
-	if err != nil {
-		return nil, 0, err
-	}
-	offset := binary.BigEndian.Uint64(message)
-	b := message[8:]
-	return b, offset, nil
-}
-
-func (c *WSClient) Close() {
-	c.ws.Close()
 }
