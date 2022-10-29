@@ -4,8 +4,12 @@ import (
 	"sync"
 )
 
+type Subscription interface {
+	Signal()
+}
+
 type Topic struct {
-	subscribers map[*Subscription]interface{}
+	subscribers map[Subscription]interface{}
 	messages    map[uint64][]byte
 	offset      uint64
 	mu          sync.RWMutex
@@ -13,7 +17,7 @@ type Topic struct {
 
 func NewTopic() *Topic {
 	return &Topic{
-		subscribers: map[*Subscription]interface{}{},
+		subscribers: map[Subscription]interface{}{},
 		messages:    map[uint64][]byte{},
 		offset:      0,
 		mu:          sync.RWMutex{},
@@ -57,14 +61,14 @@ func (t *Topic) Publish(b []byte) {
 	}
 }
 
-func (t *Topic) Subscribe(s *Subscription) {
+func (t *Topic) Subscribe(s Subscription) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.subscribers[s] = struct{}{}
 }
 
-func (t *Topic) Unsubscribe(s *Subscription) {
+func (t *Topic) Unsubscribe(s Subscription) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

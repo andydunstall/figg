@@ -1,14 +1,15 @@
-package topic
+package conn
 
 import (
 	"testing"
 
+	"github.com/andydunstall/wombat/pkg/topic"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSubscription_SubscribeLatest(t *testing.T) {
-	topic := NewTopic()
-	conn := NewFakeConn()
+	topic := topic.NewTopic()
+	conn := NewFakeConnection()
 	sub := NewSubscription(topic, conn)
 	defer sub.Shutdown()
 
@@ -31,13 +32,13 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 }
 
 func TestSubscription_SubscribeRecover(t *testing.T) {
-	topic := NewTopic()
+	topic := topic.NewTopic()
 
 	// Publish 2 messages prior to subscribing.
 	topic.Publish([]byte("foo"))
 	topic.Publish([]byte("bar"))
 
-	conn := NewFakeConn()
+	conn := NewFakeConnection()
 	sub := NewSubscriptionWithOffset(topic, conn, 0)
 	defer sub.Shutdown()
 

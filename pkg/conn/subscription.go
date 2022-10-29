@@ -1,8 +1,10 @@
-package topic
+package conn
 
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/andydunstall/wombat/pkg/topic"
 )
 
 type Message struct {
@@ -10,15 +12,10 @@ type Message struct {
 	Message []byte
 }
 
-type Conn interface {
-	Send(offset uint64, m []byte) error
-	Recv() ([]byte, error)
-}
-
 // Subscription reads messages from the topic and sends to the connection.
 type Subscription struct {
-	topic *Topic
-	conn  Conn
+	topic *topic.Topic
+	conn  Connection
 	// lastOffset is the offset of the last processed message in the topic.
 	lastOffset uint64
 
@@ -29,7 +26,7 @@ type Subscription struct {
 
 // NewSubscription creates a subscription to the given topic starting from the
 // next message in the topic.
-func NewSubscription(topic *Topic, conn Conn) *Subscription {
+func NewSubscription(topic *topic.Topic, conn Connection) *Subscription {
 	// Use the offset of the last message in the topic.
 	return NewSubscriptionWithOffset(topic, conn, topic.Offset())
 }
@@ -38,7 +35,7 @@ func NewSubscription(topic *Topic, conn Conn) *Subscription {
 // at the next message after the given offset. If the offset is less than the
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
-func NewSubscriptionWithOffset(topic *Topic, conn Conn, lastOffset uint64) *Subscription {
+func NewSubscriptionWithOffset(topic *topic.Topic, conn Connection, lastOffset uint64) *Subscription {
 	mu := &sync.Mutex{}
 	s := &Subscription{
 		topic:      topic,
