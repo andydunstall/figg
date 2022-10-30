@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/andydunstall/wombat/pkg/broker"
-	"github.com/andydunstall/wombat/pkg/conn"
+	"github.com/andydunstall/wombat/service/pkg/broker"
+	"github.com/andydunstall/wombat/service/pkg/conn"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/andydunstall/scuttlebutt"
-	"github.com/andydunstall/wombat/pkg/cluster"
-	"github.com/andydunstall/wombat/pkg/config"
-	"github.com/andydunstall/wombat/pkg/server"
+	"github.com/andydunstall/wombat/service/pkg/cluster"
+	"github.com/andydunstall/wombat/service/pkg/config"
+	"github.com/andydunstall/wombat/service/pkg/server"
 	"go.uber.org/zap"
 )
 

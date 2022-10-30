@@ -3,7 +3,7 @@ package broker
 import (
 	"sync"
 
-	"github.com/andydunstall/wombat/pkg/topic"
+	"github.com/andydunstall/wombat/service/pkg/topic"
 )
 
 type Broker struct {

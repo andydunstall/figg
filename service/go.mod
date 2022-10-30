@@ -1,4 +1,4 @@
-module github.com/andydunstall/wombat
+module github.com/andydunstall/wombat/service
 
 go 1.19
 
