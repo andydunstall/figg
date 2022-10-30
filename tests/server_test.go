@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/andydunstall/wombat/pkg/client"
+	wombat "github.com/andydunstall/wombat/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,7 +16,7 @@ func TestServer_PublishAndSubscribe(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Add a websocket subscription.
-	client, err := client.NewWombat(addr, "foo")
+	client, err := wombat.NewWombat(addr, "foo")
 	assert.Nil(t, err)
 	defer client.Shutdown()
 
