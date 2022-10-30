@@ -5,12 +5,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/andydunstall/wombat/pkg/conn"
 	"github.com/gorilla/websocket"
 )
 
 type Wombat struct {
-	transport  conn.Transport
+	transport  Transport
 	messagesCh chan []byte
 
 	wg       sync.WaitGroup
@@ -25,7 +24,7 @@ func NewWombat(addr string, topic string) (*Wombat, error) {
 	}
 
 	wombat := &Wombat{
-		transport:  conn.NewWSTransport(ws),
+		transport:  NewWSTransport(ws),
 		messagesCh: make(chan []byte),
 		wg:         sync.WaitGroup{},
 		shutdown:   0,
@@ -38,9 +37,9 @@ func NewWombat(addr string, topic string) (*Wombat, error) {
 }
 
 func (w *Wombat) Publish(b []byte) error {
-	return w.transport.Send(&conn.ProtocolMessage{
-		Type: conn.TypePublishMessage,
-		PublishMessage: &conn.PublishMessage{
+	return w.transport.Send(&ProtocolMessage{
+		Type: TypePublishMessage,
+		PublishMessage: &PublishMessage{
 			Message: b,
 		},
 	})
@@ -69,7 +68,7 @@ func (w *Wombat) readLoop() {
 			}
 		}
 		switch m.Type {
-		case conn.TypeTopicMessage:
+		case TypeTopicMessage:
 			w.messagesCh <- m.TopicMessage.Message
 		}
 	}
