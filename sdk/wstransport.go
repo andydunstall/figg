@@ -1,6 +1,8 @@
 package wombat
 
 import (
+	"fmt"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -8,10 +10,15 @@ type WSTransport struct {
 	ws *websocket.Conn
 }
 
-func NewWSTransport(ws *websocket.Conn) Transport {
+func WSTransportConnect(addr string) (*WSTransport, error) {
+	url := fmt.Sprintf("ws://%s/v1/ws", addr)
+	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return nil, err
+	}
 	return &WSTransport{
 		ws: ws,
-	}
+	}, nil
 }
 
 func (t *WSTransport) Send(m *ProtocolMessage) error {

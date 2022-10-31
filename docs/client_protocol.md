@@ -30,6 +30,10 @@ Also if the server doesn't get a `PING` within 10 seconds of the initial
 connection request or the last `PING` it assumes the client has disconnected and
 closes the connection.
 
+### Reconnect
+If the connection drops clients reconnect. Retries use exponential backoff,
+calculated as `100ms * min(2**num_attempts, 100)`.
+
 ## Topic
 A user opens a topic with `wombat.Topic(name)`. This subscribes to that topic
 so then can received messages, such as with the `topic.MessagesCh()` channel
