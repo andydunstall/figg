@@ -66,6 +66,8 @@ func (w *Wombat) readLoop() {
 			if s := atomic.LoadInt32(&w.shutdown); s == 1 {
 				return
 			}
+			// TODO(AD)
+			return
 		}
 		switch m.Type {
 		case TypeTopicMessage:
