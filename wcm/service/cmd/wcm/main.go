@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/andydunstall/wombat/wcm/service/pkg/server"
 	"go.uber.org/zap"
+	"net"
 )
 
 const (
@@ -15,8 +16,13 @@ func main() {
 
 	logger.Info("starting wcm service")
 
+	lis, err := net.Listen("tcp", Addr)
+	if err != nil {
+		logger.Fatal("failed to start listener", zap.Error(err))
+	}
+
 	server := server.NewServer(logger)
-	if err := server.Listen(Addr); err != nil {
+	if err := server.Serve(lis); err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}
 }

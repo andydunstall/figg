@@ -41,7 +41,24 @@ func (c *Cluster) AddNode() (*Node, error) {
 	c.nodes[node.ID] = node
 
 	return node, nil
+}
 
+func (c *Cluster) RemoveNode(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	node, ok := c.nodes[id]
+	if !ok {
+		// If not found do nothing.
+		return nil
+	}
+
+	if err := node.Shutdown(); err != nil {
+		return err
+	}
+	delete(c.nodes, id)
+
+	return nil
 }
 
 func (c *Cluster) Shutdown() error {

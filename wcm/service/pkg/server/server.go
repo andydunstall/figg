@@ -2,112 +2,157 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net"
-	"sync"
+	"net/http"
+	"time"
 
-	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/andydunstall/wombat/wcm/service/pkg/cluster"
-	pb "github.com/andydunstall/wombat/wcm/service/pkg/rpc"
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
-const (
-	PortRangeFrom = 40000
-	PortRangeTo   = 60000
-)
+type clusterInfo struct {
+	ID string `json:"id,omitempty"`
+}
+
+type nodeInfo struct {
+	ID   string `json:"id,omitempty"`
+	Addr string `json:"addr,omitempty"`
+}
 
 type Server struct {
-	clusters        map[string]*cluster.Cluster
-	portAllocator   *cluster.PortAllocator
-	toxiproxyClient *toxiproxy.Client
+	clusterManager *cluster.ClusterManager
 
-	mu sync.Mutex
+	router *mux.Router
+	srv    *http.Server
 
 	logger *zap.Logger
 }
 
 func NewServer(logger *zap.Logger) *Server {
-	return &Server{
-		clusters:        make(map[string]*cluster.Cluster),
-		portAllocator:   cluster.NewPortAllocator(PortRangeFrom, PortRangeTo),
-		toxiproxyClient: toxiproxy.NewClient("localhost:8474"),
-		mu:              sync.Mutex{},
-		logger:          logger,
+	router := mux.NewRouter()
+
+	s := &Server{
+		clusterManager: cluster.NewClusterManager(logger),
+		router:         router,
+		srv:            nil,
+		logger:         logger,
+	}
+	s.addRoutes()
+	return s
+}
+
+func (s *Server) addRoutes() {
+	s.router.HandleFunc("/v1/clusters", s.addCluster).Methods(http.MethodPost)
+	s.router.HandleFunc("/v1/clusters/{clusterID}", s.removeCluster).Methods(http.MethodDelete)
+
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes", s.addNode).Methods(http.MethodPost)
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}", s.removeNode).Methods(http.MethodDelete)
+}
+
+func (s *Server) addCluster(w http.ResponseWriter, r *http.Request) {
+	cluster := s.clusterManager.Add()
+
+	resp := clusterInfo{
+		ID: cluster.ID,
+	}
+	if err := json.NewEncoder(w).Encode(&resp); err != nil {
+		s.logger.Error("failed to encode response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 }
 
-func (s *Server) CreateCluster(ctx context.Context, req *pb.EmptyMessage) (*pb.ClusterInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Server) removeCluster(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("remove cluster: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
 
-	cluster := cluster.NewCluster(s.portAllocator, s.toxiproxyClient, s.logger)
-	s.clusters[cluster.ID] = cluster
-
-	s.logger.Info("cluster created", zap.String("id", cluster.ID))
-
-	return &pb.ClusterInfo{
-		Id: cluster.ID,
-	}, nil
+	s.clusterManager.Remove(clusterID)
 }
 
-func (s *Server) ClusterAddNode(ctx context.Context, req *pb.ClusterInfo) (*pb.NodeInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Server) addNode(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("add node: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
 
-	cluster, ok := s.clusters[req.Id]
+	cluster, ok := s.clusterManager.Get(clusterID)
 	if !ok {
-		s.logger.Info(
-			"requested cluster not found",
-			zap.String("cluster-id", req.Id),
-		)
-		return nil, fmt.Errorf("cluster not found")
+		s.logger.Debug("add node: cluster node found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
 	}
+
 	node, err := cluster.AddNode()
 	if err != nil {
-		return nil, err
+		s.logger.Error("add node: failed to add node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	s.logger.Info(
-		"node added",
-		zap.String("cluster-id", cluster.ID),
-		zap.String("node-id", node.ID),
-		zap.String("node-addr", node.Addr),
-	)
-
-	return &pb.NodeInfo{
-		Id:   node.ID,
+	resp := nodeInfo{
+		ID:   node.ID,
 		Addr: node.Addr,
-	}, nil
+	}
+	if err := json.NewEncoder(w).Encode(&resp); err != nil {
+		s.logger.Error("failed to encode response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
-func (s *Server) ClusterClose(ctx context.Context, req *pb.ClusterInfo) (*pb.EmptyMessage, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Server) removeNode(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("remove node: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	nodeID := vars["nodeID"]
+	if nodeID == "" {
+		s.logger.Debug("remove node: missing node ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
 
-	cluster, ok := s.clusters[req.Id]
+	cluster, ok := s.clusterManager.Get(clusterID)
 	if !ok {
-		s.logger.Info("cluster not found", zap.String("cluster-id", req.Id))
-		return nil, fmt.Errorf("cluster not found")
+		s.logger.Debug("remove node: cluster node found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
 	}
 
-	cluster.Shutdown()
-	delete(s.clusters, req.Id)
-
-	s.logger.Info("cluster shutdown", zap.String("id", cluster.ID))
-
-	return &pb.EmptyMessage{}, nil
+	if err := cluster.RemoveNode(nodeID); err != nil {
+		s.logger.Error("remove node: failed to remove node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
-func (s *Server) Listen(addr string) error {
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
+func (s *Server) Serve(lis net.Listener) error {
+	srv := &http.Server{
+		Handler:      s.router,
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
 	}
-	s.logger.Info("starting wcm service", zap.String("addr", addr))
+	s.srv = srv
+	return srv.Serve(lis)
+}
 
-	grpcServer := grpc.NewServer()
-	pb.RegisterWCMServer(grpcServer, s)
-	return grpcServer.Serve(lis)
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.srv == nil {
+		return nil
+	}
+	return s.srv.Shutdown(ctx)
 }

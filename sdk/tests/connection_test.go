@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -21,15 +20,11 @@ func waitForStateWithTimeout(stateSubscriber *wombat.ChannelStateSubscriber, tim
 }
 
 func TestConnection_Connect(t *testing.T) {
-	wcm, err := wcm.Connect()
+	cluster, err := wcm.NewCluster()
 	assert.Nil(t, err)
-	defer wcm.Close()
+	defer cluster.Shutdown()
 
-	cluster, err := wcm.CreateCluster(context.Background())
-	assert.Nil(t, err)
-	defer cluster.Close(context.Background())
-
-	node, err := cluster.AddNode(context.Background())
+	node, err := cluster.AddNode()
 	assert.Nil(t, err)
 
 	stateSubscriber := wombat.NewChannelStateSubscriber()

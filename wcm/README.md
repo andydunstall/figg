@@ -48,7 +48,6 @@ WCM adds a [toxiproxi](https://github.com/Shopify/toxiproxy) proxy for each
 node.
 
 ## TODO
-- [ ] Replace gRPC with HTTP
 - [ ] Add chaos commands
 - [ ] Rather than compile and run in a process, run each node in its own
 Goroutine where the system selects the port

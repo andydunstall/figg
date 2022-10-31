@@ -1,39 +1,58 @@
 package wcm
 
 import (
-	"context"
-
-	pb "github.com/andydunstall/wombat/wcm/sdk/pkg/rpc"
+	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 type Cluster struct {
-	ID        string
-	rpcClient pb.WCMClient
+	ID     string `json:"id,omitempty"`
+	client *Client
 }
 
-func NewCluster(id string, rpcClient pb.WCMClient) *Cluster {
-	return &Cluster{
-		ID:        id,
-		rpcClient: rpcClient,
-	}
-}
+func NewCluster() (*Cluster, error) {
+	client := NewClient()
 
-func (c *Cluster) AddNode(ctx context.Context) (*Node, error) {
-	resp, err := c.rpcClient.ClusterAddNode(ctx, &pb.ClusterInfo{
-		Id: c.ID,
-	})
+	resp, err := client.Request(http.MethodPost, "/v1/clusters")
 	if err != nil {
 		return nil, err
 	}
-	return NewNode(resp.Id, resp.Addr), nil
+	defer resp.Close()
+
+	var cluster Cluster
+	if err := json.NewDecoder(resp).Decode(&cluster); err != nil {
+		return nil, err
+	}
+
+	cluster.client = client
+	return &cluster, nil
 }
 
-func (c *Cluster) Close(ctx context.Context) error {
-	_, err := c.rpcClient.ClusterClose(ctx, &pb.ClusterInfo{
-		Id: c.ID,
-	})
+func (c *Cluster) AddNode() (*Node, error) {
+	path := fmt.Sprintf("/v1/clusters/%s/nodes", c.ID)
+
+	resp, err := c.client.Request(http.MethodPost, path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Close()
+
+	var node Node
+	if err := json.NewDecoder(resp).Decode(&node); err != nil {
+		return nil, err
+	}
+	return &node, nil
+}
+
+func (c *Cluster) Shutdown() error {
+	path := fmt.Sprintf("/v1/clusters/%s", c.ID)
+
+	resp, err := c.client.Request(http.MethodDelete, path)
 	if err != nil {
 		return err
 	}
+	defer resp.Close()
+
 	return nil
 }
