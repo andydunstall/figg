@@ -8,18 +8,29 @@ import (
 	"path"
 	"path/filepath"
 
+	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/google/uuid"
 )
 
 type Node struct {
-	ID   string
-	Addr string
-	proc *exec.Cmd
+	ID    string
+	Addr  string
+	proc  *exec.Cmd
+	proxy *toxiproxy.Proxy
 }
 
-func NewNode(portAllocator *PortAllocator) (*Node, error) {
+func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client) (*Node, error) {
 	id := uuid.New().String()
-	addr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
+
+	listenAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
+	proxyAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
+
+	proxyID := fmt.Sprintf("wombat_%s", id)
+	proxy, err := toxiproxyClient.CreateProxy(proxyID, proxyAddr, listenAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	gossipAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 
 	stdoutLogger, err := createStdoutLogger(id)
@@ -57,7 +68,7 @@ func NewNode(portAllocator *PortAllocator) (*Node, error) {
 	}
 
 	params := map[string]string{
-		"--addr":        addr,
+		"--addr":        listenAddr,
 		"--gossip.addr": gossipAddr,
 		"--gossip.peer": id,
 	}
@@ -74,10 +85,12 @@ func NewNode(portAllocator *PortAllocator) (*Node, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+
 	return &Node{
-		ID:   id,
-		Addr: addr,
-		proc: cmd,
+		ID:    id,
+		Addr:  proxyAddr,
+		proc:  cmd,
+		proxy: proxy,
 	}, nil
 }
 
@@ -97,6 +110,17 @@ func (n *Node) Signal(sig os.Signal) error {
 
 func (n *Node) Wait() error {
 	return n.proc.Wait()
+}
+
+func (n *Node) Shutdown() error {
+	if err := n.proxy.Delete(); err != nil {
+		return err
+	}
+	if err := n.Kill(); err != nil {
+		return err
+	}
+	n.Wait()
+	return nil
 }
 
 func createStdoutLogger(id string) (io.Writer, error) {

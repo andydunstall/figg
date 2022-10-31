@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 
+	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/andydunstall/wombat/wcm/service/pkg/cluster"
 	pb "github.com/andydunstall/wombat/wcm/service/pkg/rpc"
 	"go.uber.org/zap"
@@ -13,13 +14,14 @@ import (
 )
 
 const (
-	PortRangeFrom = 10000
-	PortRangeTo   = 20000
+	PortRangeFrom = 40000
+	PortRangeTo   = 60000
 )
 
 type Server struct {
-	clusters      map[string]*cluster.Cluster
-	portAllocator *cluster.PortAllocator
+	clusters        map[string]*cluster.Cluster
+	portAllocator   *cluster.PortAllocator
+	toxiproxyClient *toxiproxy.Client
 
 	mu sync.Mutex
 
@@ -28,10 +30,11 @@ type Server struct {
 
 func NewServer(logger *zap.Logger) *Server {
 	return &Server{
-		clusters:      make(map[string]*cluster.Cluster),
-		portAllocator: cluster.NewPortAllocator(PortRangeFrom, PortRangeTo),
-		mu:            sync.Mutex{},
-		logger:        logger,
+		clusters:        make(map[string]*cluster.Cluster),
+		portAllocator:   cluster.NewPortAllocator(PortRangeFrom, PortRangeTo),
+		toxiproxyClient: toxiproxy.NewClient("localhost:8474"),
+		mu:              sync.Mutex{},
+		logger:          logger,
 	}
 }
 
@@ -39,7 +42,7 @@ func (s *Server) CreateCluster(ctx context.Context, req *pb.EmptyMessage) (*pb.C
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cluster := cluster.NewCluster(s.portAllocator, s.logger)
+	cluster := cluster.NewCluster(s.portAllocator, s.toxiproxyClient, s.logger)
 	s.clusters[cluster.ID] = cluster
 
 	s.logger.Info("cluster created", zap.String("id", cluster.ID))
