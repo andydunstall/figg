@@ -6,22 +6,22 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type WSTransport struct {
+type WSConnection struct {
 	ws *websocket.Conn
 }
 
-func WSTransportConnect(addr string) (*WSTransport, error) {
+func WSConnect(addr string) (*WSConnection, error) {
 	url := fmt.Sprintf("ws://%s/v1/ws", addr)
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &WSTransport{
+	return &WSConnection{
 		ws: ws,
 	}, nil
 }
 
-func (t *WSTransport) Send(m *ProtocolMessage) error {
+func (t *WSConnection) Send(m *ProtocolMessage) error {
 	b, err := m.Encode()
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func (t *WSTransport) Send(m *ProtocolMessage) error {
 	return t.ws.WriteMessage(websocket.BinaryMessage, b)
 }
 
-func (t *WSTransport) Recv() (*ProtocolMessage, error) {
+func (t *WSConnection) Recv() (*ProtocolMessage, error) {
 	_, b, err := t.ws.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -42,6 +42,6 @@ func (t *WSTransport) Recv() (*ProtocolMessage, error) {
 	return m, nil
 }
 
-func (t *WSTransport) Close() error {
+func (t *WSConnection) Close() error {
 	return t.ws.Close()
 }

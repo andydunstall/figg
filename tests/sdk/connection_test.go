@@ -30,11 +30,12 @@ func TestConnection_Connect(t *testing.T) {
 
 	stateSubscriber := wombat.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
-	client := wombat.NewWombat(&wombat.Config{
+	client, err := wombat.NewWombat(&wombat.Config{
 		Addr:            node.Addr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
+	assert.Nil(t, err)
 	defer client.Shutdown()
 
 	evt, ok := waitForStateWithTimeout(stateSubscriber, 5*time.Second)
@@ -61,11 +62,12 @@ func TestConnection_ConnectOnceReachable(t *testing.T) {
 
 	stateSubscriber := wombat.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
-	client := wombat.NewWombat(&wombat.Config{
+	client, err := wombat.NewWombat(&wombat.Config{
 		Addr:            node.Addr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
+	assert.Nil(t, err)
 	defer client.Shutdown()
 
 	evt, ok := waitForStateWithTimeout(stateSubscriber, 10*time.Second)
