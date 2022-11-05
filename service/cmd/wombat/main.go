@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/andydunstall/wombat/service"
 	"github.com/andydunstall/wombat/service/pkg/config"
-	"github.com/andydunstall/wombat/service/pkg/wombat"
 )
 
 func main() {
@@ -13,5 +13,5 @@ func main() {
 		log.Fatalf("failed to parse config: %s", err)
 	}
 
-	wombat.Run(config)
+	service.Run(config)
 }
