@@ -6,12 +6,13 @@ and system testing.
 This is inspired by [CCM (Cassandra Cluster Manager)](https://github.com/riptano/ccm)
 which is used by Cassandra.
 
-WCM consists of two parts. A server written in Go that manages the cluster and
-proxies cluster traffic, and a client issuing commands to the manager over HTTP.
-This means its easy to write new clients, such as a CLI and Go library, useful
-for testing SDKs.
+WCM is a server written in Go that manages Wombat clusters, exposing a REST API
+to issue commands. It runs Wombat nodes in their own goroutine as part of
+the WCM process. This means it must be restarted when then Wombat service
+changes, though running system tests should be rare so shouldn't be a big issue.
 
 ## Usage
+WCM exposes an HTTP API to manage Wombat clusters. Theres also a [Go SDK](./sdk).
 
 ### Cluster
 A cluster manages a set of nodes.
@@ -34,20 +35,27 @@ Wombat service nodes can be added with:
 POST /clusters/{clusterID}/nodes
 ```
 This adds a node to the cluster with the given ID, assigning a unique ID and
-port to the node. It also re-compiles the wombat service before running so
-theres no need to compile after making changes.
+port to the node.
 
 The node can then be removed again with:
 ```
 DELETE /clusters/{clusterID}/nodes/{nodeID}
 ```
-Which will kill the node and wait for it to exit.
+Which will stop the node and wait for it to exit.
 
 ### Chaos
-WCM adds a [toxiproxi](https://github.com/Shopify/toxiproxy) proxy for each
-node.
+WCM adds a [toxiproxy](https://github.com/Shopify/toxiproxy) proxy for each
+node. This makes it easy to inject chaos into the cluster.
 
-## TODO
-- [ ] Add chaos commands
-- [ ] Rather than compile and run in a process, run each node in its own
-Goroutine where the system selects the port
+**Enable/Disable A Node**
+
+Disable the networking for a node. This just stops proxying any traffic to the
+node.
+```
+POST /clusters/{clusterID}/nodes/{nodeID}/disable
+```
+
+Enable the node again:
+```
+POST /clusters/{clusterID}/nodes/{nodeID}/enable
+```
