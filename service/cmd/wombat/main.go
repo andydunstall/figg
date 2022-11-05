@@ -36,13 +36,12 @@ func main() {
 	doneCh := make(chan interface{})
 	service.Run(config, logger, doneCh)
 
+	// TODO(AD) this isn't doing anything yet as Run blocks
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	// Block until we receive our signal.
 	<-c
+	close(doneCh)
 
 	logger.Info("received interrupt")
-
-	doneCh <- struct{}{}
-
 }

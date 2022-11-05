@@ -19,6 +19,7 @@ func waitForStateWithTimeout(stateSubscriber *wombat.ChannelStateSubscriber, tim
 	}
 }
 
+// Tests the SDK connects when wombat is reachable.
 func TestConnection_Connect(t *testing.T) {
 	cluster, err := wcm.NewCluster()
 	assert.Nil(t, err)
@@ -37,6 +38,37 @@ func TestConnection_Connect(t *testing.T) {
 	defer client.Shutdown()
 
 	evt, ok := waitForStateWithTimeout(stateSubscriber, 5*time.Second)
+	assert.True(t, ok)
+	assert.Equal(t, wombat.StateConnected, evt)
+}
+
+// Tests if wombat is unreachable when the SDK initally tries to connect, it
+// retries and succeeds once wombat is reachable.
+func TestConnection_ConnectOnceReachable(t *testing.T) {
+	cluster, err := wcm.NewCluster()
+	assert.Nil(t, err)
+	defer cluster.Shutdown()
+
+	node, err := cluster.AddNode()
+	assert.Nil(t, err)
+
+	// Disable the networking for the node and reenable after 5 seconds.
+	assert.Nil(t, node.Disable())
+	go func() {
+		<-time.After(5 * time.Second)
+		assert.Nil(t, node.Enable())
+	}()
+
+	stateSubscriber := wombat.NewChannelStateSubscriber()
+	logger, _ := zap.NewDevelopment()
+	client := wombat.NewWombat(&wombat.Config{
+		Addr:            node.Addr,
+		StateSubscriber: stateSubscriber,
+		Logger:          logger,
+	})
+	defer client.Shutdown()
+
+	evt, ok := waitForStateWithTimeout(stateSubscriber, 10*time.Second)
 	assert.True(t, ok)
 	assert.Equal(t, wombat.StateConnected, evt)
 }

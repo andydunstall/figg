@@ -44,11 +44,16 @@ func NewServer(logger *zap.Logger) *Server {
 }
 
 func (s *Server) addRoutes() {
+	s.router.Use(s.requestLogger)
+
 	s.router.HandleFunc("/v1/clusters", s.addCluster).Methods(http.MethodPost)
 	s.router.HandleFunc("/v1/clusters/{clusterID}", s.removeCluster).Methods(http.MethodDelete)
 
 	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes", s.addNode).Methods(http.MethodPost)
 	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}", s.removeNode).Methods(http.MethodDelete)
+
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/enable", s.enableNode).Methods(http.MethodPost)
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/disable", s.disableNode).Methods(http.MethodPost)
 }
 
 func (s *Server) addCluster(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +144,78 @@ func (s *Server) removeNode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) enableNode(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("enable node: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	nodeID := vars["nodeID"]
+	if nodeID == "" {
+		s.logger.Debug("enable node: missing node ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	cluster, ok := s.clusterManager.Get(clusterID)
+	if !ok {
+		s.logger.Debug("enable node: cluster not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	node, ok := cluster.GetNode(nodeID)
+	if !ok {
+		s.logger.Debug("enable node: node not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := node.Enable(); err != nil {
+		s.logger.Error("enable node: failed to connect node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) disableNode(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("disable node: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	nodeID := vars["nodeID"]
+	if nodeID == "" {
+		s.logger.Debug("disable node: missing node ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	cluster, ok := s.clusterManager.Get(clusterID)
+	if !ok {
+		s.logger.Debug("disable node: cluster not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	node, ok := cluster.GetNode(nodeID)
+	if !ok {
+		s.logger.Debug("disable node: node not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := node.Disable(); err != nil {
+		s.logger.Error("disable node: failed to disconnect node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *Server) Serve(lis net.Listener) error {
 	srv := &http.Server{
 		Handler:      s.router,
@@ -155,4 +232,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return s.srv.Shutdown(ctx)
+}
+
+func (s *Server) requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.logger.Debug(
+			"request",
+			zap.String("url", r.URL.String()),
+			zap.String("method", r.Method),
+		)
+		next.ServeHTTP(w, r)
+	})
 }

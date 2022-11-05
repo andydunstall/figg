@@ -42,6 +42,8 @@ func (c *Cluster) AddNode() (*Node, error) {
 	if err := json.NewDecoder(resp).Decode(&node); err != nil {
 		return nil, err
 	}
+	node.ClusterID = c.ID
+	node.client = c.client
 	return &node, nil
 }
 

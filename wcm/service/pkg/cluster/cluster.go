@@ -30,15 +30,30 @@ func NewCluster(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client,
 	}
 }
 
+func (c *Cluster) GetNode(id string) (*Node, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	node, ok := c.nodes[id]
+	return node, ok
+}
+
 func (c *Cluster) AddNode() (*Node, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	node, err := NewNode(c.portAllocator, c.toxiproxyClient)
+	node, err := NewNode(c.portAllocator, c.toxiproxyClient, c.logger)
 	if err != nil {
 		return nil, err
 	}
 	c.nodes[node.ID] = node
+
+	c.logger.Debug(
+		"node added",
+		zap.String("cluster-id", c.ID),
+		zap.String("proxy-addr", node.Addr),
+		zap.String("node-id", node.ID),
+	)
 
 	return node, nil
 }
@@ -58,6 +73,12 @@ func (c *Cluster) RemoveNode(id string) error {
 	}
 	delete(c.nodes, id)
 
+	c.logger.Debug(
+		"node removed",
+		zap.String("cluster-id", c.ID),
+		zap.String("node-id", node.ID),
+	)
+
 	return nil
 }
 
@@ -66,11 +87,12 @@ func (c *Cluster) Shutdown() error {
 	defer c.mu.Unlock()
 
 	for _, node := range c.nodes {
-		c.logger.Debug("shutting down node", zap.String("node-id", node.ID))
 		if err := node.Shutdown(); err != nil {
 			c.logger.Warn("failed to shutdown node", zap.String("node-id", node.ID), zap.Error(err))
 		}
 	}
+
+	c.logger.Debug("cluster shutdown", zap.String("cluster-id", c.ID))
 
 	return nil
 }

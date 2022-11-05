@@ -52,7 +52,7 @@ func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 
 	go func() {
 		if err := server.Serve(lis); err != nil {
-			logger.Fatal("serve failed", zap.Error(err))
+			logger.Error("serve failed", zap.Error(err))
 		}
 	}()
 

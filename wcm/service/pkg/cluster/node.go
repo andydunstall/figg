@@ -3,7 +3,6 @@ package cluster
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/andydunstall/wombat/service"
@@ -17,11 +16,12 @@ type Node struct {
 	Addr  string
 	proxy *toxiproxy.Proxy
 
+	logger *zap.Logger
+
 	doneCh chan interface{}
-	wg     sync.WaitGroup
 }
 
-func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client) (*Node, error) {
+func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, logger *zap.Logger) (*Node, error) {
 	id := uuid.New().String()
 
 	listenAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
@@ -41,27 +41,42 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client) (*
 		GossipPeerID: id,
 	}
 
-	logger, err := newLogger(id)
+	procLogger, err := newLogger(id)
 	if err != nil {
 		return nil, err
 	}
 
-	wg := sync.WaitGroup{}
 	doneCh := make(chan interface{})
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		service.Run(config, logger, doneCh)
+		service.Run(config, procLogger, doneCh)
 	}()
 
 	return &Node{
 		ID:     id,
 		Addr:   proxyAddr,
 		proxy:  proxy,
+		logger: logger,
 		doneCh: doneCh,
-		wg:     wg,
 	}, nil
+}
+
+func (n *Node) Enable() error {
+	if err := n.proxy.Enable(); err != nil {
+		n.logger.Error("failed to enable node", zap.String("node-id", n.ID), zap.Error(err))
+	}
+
+	n.logger.Debug("node enabled", zap.String("node-id", n.ID))
+	return nil
+}
+
+func (n *Node) Disable() error {
+	if err := n.proxy.Disable(); err != nil {
+		n.logger.Error("failed to disable node", zap.String("node-id", n.ID), zap.Error(err))
+	}
+
+	n.logger.Debug("node disabled", zap.String("node-id", n.ID))
+	return nil
 }
 
 func (n *Node) Shutdown() error {
@@ -69,7 +84,6 @@ func (n *Node) Shutdown() error {
 		return err
 	}
 	close(n.doneCh)
-	n.wg.Wait()
 	return nil
 }
 
