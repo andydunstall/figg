@@ -2,10 +2,24 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
 
 	"github.com/andydunstall/wombat/service"
 	"github.com/andydunstall/wombat/service/pkg/config"
+	"go.uber.org/zap"
 )
+
+func setupLogger(debugMode bool) (*zap.Logger, error) {
+	if debugMode {
+		logger, err := zap.NewDevelopment()
+		if err != nil {
+			return nil, err
+		}
+		return logger, nil
+	}
+	return zap.NewProduction()
+}
 
 func main() {
 	config, err := config.ParseConfig()
@@ -13,5 +27,22 @@ func main() {
 		log.Fatalf("failed to parse config: %s", err)
 	}
 
-	service.Run(config)
+	logger, err := setupLogger(config.Verbose)
+	if err != nil {
+		log.Fatalf("failed to setup logger: %s", err)
+	}
+	defer logger.Sync()
+
+	doneCh := make(chan interface{})
+	service.Run(config, logger, doneCh)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	// Block until we receive our signal.
+	<-c
+
+	logger.Info("received interrupt")
+
+	doneCh <- struct{}{}
+
 }

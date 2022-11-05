@@ -2,21 +2,23 @@ package cluster
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
+	"sync"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
+	"github.com/andydunstall/wombat/service"
+	"github.com/andydunstall/wombat/service/pkg/config"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Node struct {
 	ID    string
 	Addr  string
-	proc  *exec.Cmd
 	proxy *toxiproxy.Proxy
+
+	doneCh chan interface{}
+	wg     sync.WaitGroup
 }
 
 func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client) (*Node, error) {
@@ -33,116 +35,53 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client) (*
 
 	gossipAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 
-	stdoutLogger, err := createStdoutLogger(id)
+	config := config.Config{
+		Addr:         listenAddr,
+		GossipAddr:   gossipAddr,
+		GossipPeerID: id,
+	}
+
+	logger, err := newLogger(id)
 	if err != nil {
 		return nil, err
 	}
 
-	stderrLogger, err := createStderrLogger(id)
-	if err != nil {
-		return nil, err
-	}
+	wg := sync.WaitGroup{}
+	doneCh := make(chan interface{})
 
-	newpath := filepath.Join(".", "out")
-	err = os.MkdirAll(newpath, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	p = path.Join(p, "./out/wombat")
-
-	cmd := exec.Command("/usr/local/bin/go", "build", "-o", p, "cmd/wombat/main.go")
-	cmd.Dir = "../../service"
-	cmd.Stdin = nil
-	cmd.Stdout = stdoutLogger
-	cmd.Stderr = stderrLogger
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	if err = cmd.Wait(); err != nil {
-		return nil, err
-	}
-
-	params := map[string]string{
-		"--addr":        listenAddr,
-		"--gossip.addr": gossipAddr,
-		"--gossip.peer": id,
-	}
-
-	args := []string{}
-	for k, v := range params {
-		args = append(args, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	cmd = exec.Command(p, args...)
-	cmd.Stdin = nil
-	cmd.Stdout = stdoutLogger
-	cmd.Stderr = stderrLogger
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		service.Run(config, logger, doneCh)
+	}()
 
 	return &Node{
-		ID:    id,
-		Addr:  proxyAddr,
-		proc:  cmd,
-		proxy: proxy,
+		ID:     id,
+		Addr:   proxyAddr,
+		proxy:  proxy,
+		doneCh: doneCh,
+		wg:     wg,
 	}, nil
-}
-
-func (n *Node) Kill() error {
-	if n.proc.Process == nil {
-		return nil
-	}
-	return n.proc.Process.Kill()
-}
-
-func (n *Node) Signal(sig os.Signal) error {
-	if n.proc.Process == nil {
-		return nil
-	}
-	return n.proc.Process.Signal(sig)
-}
-
-func (n *Node) Wait() error {
-	return n.proc.Wait()
 }
 
 func (n *Node) Shutdown() error {
 	if err := n.proxy.Delete(); err != nil {
 		return err
 	}
-	if err := n.Kill(); err != nil {
-		return err
-	}
-	n.Wait()
+	close(n.doneCh)
+	n.wg.Wait()
 	return nil
 }
 
-func createStdoutLogger(id string) (io.Writer, error) {
+func newLogger(id string) (*zap.Logger, error) {
 	if err := createLogDir(id); err != nil {
 		return nil, err
 	}
-	f, err := os.Create("out/" + id + "/out.log")
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-}
+	path := "out/" + id + "/out.log"
 
-func createStderrLogger(id string) (io.Writer, error) {
-	if err := createLogDir(id); err != nil {
-		return nil, err
-	}
-	f, err := os.Create("out/" + id + "/err.log")
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+	cfg := zap.NewDevelopmentConfig()
+	cfg.OutputPaths = []string{path}
+	return cfg.Build()
 }
 
 func createLogDir(id string) error {

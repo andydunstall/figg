@@ -2,10 +2,7 @@ package service
 
 import (
 	"context"
-	"log"
 	"net"
-	"os"
-	"os/signal"
 	"strings"
 	"time"
 
@@ -27,13 +24,7 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 	return zap.NewProduction()
 }
 
-func Run(config config.Config) {
-	logger, err := setupLogger(config.Verbose)
-	if err != nil {
-		log.Fatalf("failed to setup logger: %s", err)
-	}
-	defer logger.Sync()
-
+func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 	logger.Info("starting wombat")
 
 	cluster := cluster.NewCluster(config.GossipPeerID, logger)
@@ -61,14 +52,11 @@ func Run(config config.Config) {
 
 	go func() {
 		if err := server.Serve(lis); err != nil {
-			logger.Fatal("failed to start server", zap.Error(err))
+			logger.Fatal("serve failed", zap.Error(err))
 		}
 	}()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	// Block until we receive our signal.
-	<-c
+	<-doneCh
 
 	logger.Info("starting shut down")
 
