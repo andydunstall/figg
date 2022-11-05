@@ -34,12 +34,8 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, lo
 		return nil, err
 	}
 
-	gossipAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
-
 	config := config.Config{
-		Addr:         listenAddr,
-		GossipAddr:   gossipAddr,
-		GossipPeerID: id,
+		Addr: listenAddr,
 	}
 
 	procLogger, err := newLogger(id)
