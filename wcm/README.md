@@ -59,3 +59,18 @@ Enable the node again:
 ```
 POST /clusters/{clusterID}/nodes/{nodeID}/enable
 ```
+
+**Latency**
+
+Add latency to the nodes network. This will return a unique handle ID.
+```
+POST /clusters/{clusterID}/nodes/{nodeID}/latency?latency=N
+```
+
+**Clear**
+
+Other than enable/disable, adding chaos returns a handle ID. The chaos schenario
+can be cleared with:
+```
+DELETE /clusters/{clusterID}/nodes/{nodeID}/chaos/{scenarioID}
+```

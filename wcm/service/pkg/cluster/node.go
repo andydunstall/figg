@@ -3,6 +3,7 @@ package cluster
 import (
 	"fmt"
 	"os"
+	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/andydunstall/wombat/service"
@@ -77,6 +78,21 @@ func (n *Node) Disable() error {
 
 	n.logger.Debug("node disabled", zap.String("node-id", n.ID))
 	return nil
+}
+
+func (n *Node) AddLatency(d time.Duration) (string, error) {
+	id := uuid.New().String()
+	_, err := n.proxy.AddToxic(id, "latency", "downstream", 1.0, toxiproxy.Attributes{
+		"latency": d.Milliseconds(),
+	})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (n *Node) RemoveScenario(id string) error {
+	return n.proxy.RemoveToxic(id)
 }
 
 func (n *Node) Shutdown() error {

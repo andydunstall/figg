@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/andydunstall/wombat/wcm/service/pkg/cluster"
@@ -19,6 +20,10 @@ type clusterInfo struct {
 type nodeInfo struct {
 	ID   string `json:"id,omitempty"`
 	Addr string `json:"addr,omitempty"`
+}
+
+type scenarioInfo struct {
+	ID string `json:"id,omitempty"`
 }
 
 type Server struct {
@@ -54,6 +59,10 @@ func (s *Server) addRoutes() {
 
 	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/enable", s.enableNode).Methods(http.MethodPost)
 	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/disable", s.disableNode).Methods(http.MethodPost)
+
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/latency", s.addLatency).Methods(http.MethodPost)
+
+	s.router.HandleFunc("/v1/clusters/{clusterID}/nodes/{nodeID}/chaos/{scenarioID}", s.removeChaosScenario).Methods(http.MethodDelete)
 }
 
 func (s *Server) addCluster(w http.ResponseWriter, r *http.Request) {
@@ -175,6 +184,108 @@ func (s *Server) enableNode(w http.ResponseWriter, r *http.Request) {
 
 	if err := node.Enable(); err != nil {
 		s.logger.Error("enable node: failed to connect node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) addLatency(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("add latency: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	nodeID := vars["nodeID"]
+	if nodeID == "" {
+		s.logger.Debug("add latency: missing node ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	latencyStr := r.URL.Query().Get("latency")
+	if latencyStr == "" {
+		// Default to 1s of latency.
+		latencyStr = "1000"
+	}
+
+	latencyMS, err := strconv.Atoi(latencyStr)
+	if err != nil {
+		s.logger.Debug("add latency: invalid latency")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	latency := time.Duration(latencyMS) * time.Millisecond
+
+	cluster, ok := s.clusterManager.Get(clusterID)
+	if !ok {
+		s.logger.Debug("add latency: cluster not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	node, ok := cluster.GetNode(nodeID)
+	if !ok {
+		s.logger.Debug("add latency: node not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	id, err := node.AddLatency(latency)
+	if err != nil {
+		s.logger.Error("add latency: failed to connect node", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := scenarioInfo{
+		ID: id,
+	}
+	if err := json.NewEncoder(w).Encode(&resp); err != nil {
+		s.logger.Error("failed to encode response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) removeChaosScenario(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterID"]
+	if clusterID == "" {
+		s.logger.Debug("add latency: missing cluster ID")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	nodeID := vars["nodeID"]
+	if nodeID == "" {
+		s.logger.Debug("add latency: missing node ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	scenarioID := vars["scenarioID"]
+	if scenarioID == "" {
+		s.logger.Debug("add latency: missing scenario ID")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	cluster, ok := s.clusterManager.Get(clusterID)
+	if !ok {
+		s.logger.Debug("add latency: cluster not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	node, ok := cluster.GetNode(nodeID)
+	if !ok {
+		s.logger.Debug("add latency: node not found")
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := node.RemoveScenario(scenarioID); err != nil {
+		s.logger.Error("add latency: failed to remove scenario", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
