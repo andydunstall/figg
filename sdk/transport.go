@@ -86,7 +86,7 @@ func (t *Transport) recvLoop() {
 			t.stateCh <- StateConnected
 		}
 
-		_, err := t.conn.Recv()
+		m, err := t.conn.Recv()
 		if err != nil {
 			// If we've been shutdown ignore the error and exit.
 			if s := atomic.LoadInt32(&t.shutdown); s == 1 {
@@ -97,7 +97,11 @@ func (t *Transport) recvLoop() {
 
 			t.stateCh <- StateDisconnected
 			t.conn = nil
+
+			continue
 		}
+
+		t.messageCh <- m
 	}
 }
 

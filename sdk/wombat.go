@@ -74,6 +74,11 @@ func (w *Wombat) eventLoop() {
 
 	for {
 		select {
+		case m := <-w.transport.MessageCh():
+			w.logger.Debug(
+				"received message",
+				zap.String("type", TypeToString(m.Type)),
+			)
 		case state := <-w.transport.StateCh():
 			if w.stateSubscriber != nil {
 				w.stateSubscriber.NotifyState(state)

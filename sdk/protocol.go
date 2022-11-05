@@ -113,3 +113,24 @@ func ProtocolMessageFromBytes(b []byte) (*ProtocolMessage, error) {
 
 	return &m, nil
 }
+
+func TypeToString(t MessageType) string {
+	switch t {
+	case TypeAttach:
+		return "ATTACH"
+	case TypeAttached:
+		return "ATTACHED"
+	case TypePublish:
+		return "PUBLISH"
+	case TypeACK:
+		return "ACK"
+	case TypePayload:
+		return "PAYLOAD"
+	case TypePing:
+		return "PING"
+	case TypePong:
+		return "PONG"
+	default:
+		return "UNKNOWN"
+	}
+}
