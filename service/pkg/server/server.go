@@ -86,12 +86,6 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		switch m.Type {
-		case conn.TypePublishMessage:
-			if m.PublishMessage == nil {
-				s.logger.Debug("invalid message receoved; missing publish message")
-				return
-			}
-			t.Publish(m.PublishMessage.Message)
 		}
 	}
 }

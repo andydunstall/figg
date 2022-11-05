@@ -1,6 +1,8 @@
 package conn
 
 import (
+	"fmt"
+
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -10,14 +12,24 @@ const (
 	TypeAttach   = MessageType(1)
 	TypeAttached = MessageType(2)
 	TypePublish  = MessageType(3)
-	TypeAck      = MessageType(4)
-	TypeMessage  = MessageType(5)
+	TypeACK      = MessageType(4)
+	TypePayload  = MessageType(5)
 	TypePing     = MessageType(6)
 	TypePong     = MessageType(7)
-
-	// TODO(AD) Remove
-	TypeTopicMessage = MessageType(99)
 )
+
+type AttachMessage struct{}
+
+type AttachedMessage struct{}
+
+type PublishMessage struct{}
+
+type ACKMessage struct{}
+
+type PayloadMessage struct {
+	Offset  uint64
+	Message []byte
+}
 
 type PingMessage struct {
 	// Timestamp is the time in milliseconds the ping message was sent.
@@ -47,17 +59,15 @@ func NewPongMessage(timestamp int64) *ProtocolMessage {
 	}
 }
 
-// TODO(AD) Remove
-type TopicMessage struct {
-	Offset  uint64
-	Message []byte
-}
-
 type ProtocolMessage struct {
-	Type         MessageType
-	TopicMessage *TopicMessage
-	Ping         *PingMessage
-	Pong         *PongMessage
+	Type     MessageType
+	Attach   *AttachMessage
+	Attached *AttachedMessage
+	Publish  *PublishMessage
+	ACK      *ACKMessage
+	Payload  *PayloadMessage
+	Ping     *PingMessage
+	Pong     *PongMessage
 }
 
 func (m *ProtocolMessage) Encode() ([]byte, error) {
@@ -69,6 +79,40 @@ func ProtocolMessageFromBytes(b []byte) (*ProtocolMessage, error) {
 	if err := msgpack.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
-	// TODO(AD) verify type matches filled fields
+
+	// Check each message has the payload corresponding to the message type.
+	switch m.Type {
+	case TypeAttach:
+		if m.Attach == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypeAttached:
+		if m.Attached == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypePublish:
+		if m.Publish == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypeACK:
+		if m.ACK == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypePayload:
+		if m.Payload == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypePing:
+		if m.Ping == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	case TypePong:
+		if m.Pong == nil {
+			return nil, fmt.Errorf("missing message payload")
+		}
+	default:
+		return nil, fmt.Errorf("unknown type")
+	}
+
 	return &m, nil
 }

@@ -64,7 +64,7 @@ If messages are not acknowledged within 5 seconds the client should retry.
 Once attached the server will send all messages received on the topic. These
 processed messages are assigned a unique serial.
 
-The received messages have type `MESSAGE` and include the topic name, the
+The received messages have type `PAYLOAD` and include the topic name, the
 serial and the message payload.
 
 ### Reattach
@@ -133,9 +133,9 @@ Such as a `ATTACHED` message would have format:
   * `topic` (string)
   * `sequence_number` (uint32)
 
-**MESSAGE**
+**PAYLOAD**
 * Type: `5`
-* Name: `message`
+* Name: `payload`
 * Direction: Server -> Client
 * Fields
   * `topic` (string)
