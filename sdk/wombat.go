@@ -3,12 +3,14 @@ package wombat
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 )
 
 type Wombat struct {
-	transport *Transport
+	transport    *Transport
+	pingInterval time.Duration
 
 	stateSubscriber StateSubscriber
 
@@ -40,17 +42,23 @@ func (w *Wombat) Shutdown() error {
 }
 
 func newWombat(config *Config) (*Wombat, error) {
+	if config.Addr == "" {
+		return nil, fmt.Errorf("config missing wombat address")
+	}
+
+	pingInterval := config.PingInterval
+	if pingInterval == time.Duration(0) {
+		pingInterval = time.Second * 5
+	}
+
 	logger := config.Logger
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
-	if config.Addr == "" {
-		return nil, fmt.Errorf("config missing wombat address")
-	}
-
 	return &Wombat{
 		transport:       NewTransport(config.Addr, logger),
+		pingInterval:    pingInterval,
 		stateSubscriber: config.StateSubscriber,
 		doneCh:          make(chan interface{}),
 		wg:              sync.WaitGroup{},
@@ -61,14 +69,19 @@ func newWombat(config *Config) (*Wombat, error) {
 func (w *Wombat) eventLoop() {
 	defer w.wg.Done()
 
+	pingTicker := time.NewTicker(w.pingInterval)
+	defer pingTicker.Stop()
+
 	for {
 		select {
-		case <-w.doneCh:
-			return
 		case state := <-w.transport.StateCh():
 			if w.stateSubscriber != nil {
 				w.stateSubscriber.NotifyState(state)
 			}
+		case <-pingTicker.C:
+			w.logger.Debug("ping")
+		case <-w.doneCh:
+			return
 		}
 	}
 }

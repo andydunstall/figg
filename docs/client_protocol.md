@@ -19,12 +19,12 @@ The address should be a load balancer routing the request to a random node
 in the nearest region.
 
 ### Heartbeats
-Once connected the client must send a `PING` message every 5 seconds, which the
-server responds with a `PONG`. This `PING` includes a timestamp so the client
-can monitor the latency between itself and the server.
+Once connected the client must send a `PING` message every 5 seconds
+(configurable), which the server responds with a `PONG`. This `PING` includes a
+timestamp so the client can monitor the latency between itself and the server.
 
-If the client doesn't get a `PONG` within 5 seconds (or a configurable timeout)
-it should attempt to reconnect.
+If the client doesn't get a `PONG` by the time it next sends a `PING` it assumes
+it has disconnected so reconnects.
 
 Also if the server doesn't get a `PING` within 10 seconds of the initial
 connection request or the last `PING` it assumes the client has disconnected and

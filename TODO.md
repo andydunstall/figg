@@ -8,3 +8,4 @@
 	* Test server responds with RST for 2 seconds and client still reconnects
 	* Test server never responds to ping and SDK reconnects
 * Add heartbeats
+  * Test by adding latency so never receive PONG
