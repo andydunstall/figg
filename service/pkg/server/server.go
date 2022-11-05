@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/andydunstall/wombat/service/pkg/broker"
 	"github.com/andydunstall/wombat/service/pkg/conn"
+	"github.com/andydunstall/wombat/service/pkg/topic"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -16,7 +16,7 @@ import (
 
 type Server struct {
 	router   *mux.Router
-	broker   *broker.Broker
+	broker   *topic.Broker
 	upgrader websocket.Upgrader
 	srv      *http.Server
 	logger   *zap.Logger
@@ -31,7 +31,7 @@ func NewServer(logger *zap.Logger) *Server {
 	}
 	s := &Server{
 		router:   router,
-		broker:   broker.NewBroker(),
+		broker:   topic.NewBroker(),
 		upgrader: upgrader,
 		logger:   logger,
 	}

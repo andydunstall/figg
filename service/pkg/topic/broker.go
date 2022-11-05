@@ -1,31 +1,29 @@
-package broker
+package topic
 
 import (
 	"sync"
-
-	"github.com/andydunstall/wombat/service/pkg/topic"
 )
 
 type Broker struct {
-	topics map[string]*topic.Topic
+	topics map[string]*Topic
 	mu     sync.Mutex
 }
 
 func NewBroker() *Broker {
 	return &Broker{
-		topics: map[string]*topic.Topic{},
+		topics: map[string]*Topic{},
 		mu:     sync.Mutex{},
 	}
 }
 
-func (b *Broker) GetTopic(name string) *topic.Topic {
+func (b *Broker) GetTopic(name string) *Topic {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if topic, ok := b.topics[name]; ok {
 		return topic
 	}
-	topic := topic.NewTopic()
+	topic := NewTopic()
 	b.topics[name] = topic
 	return topic
 }
