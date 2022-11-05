@@ -1,6 +1,7 @@
 package wombat
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -43,6 +44,13 @@ func NewTransport(addr string, logger *zap.Logger) *Transport {
 	go transport.recvLoop()
 
 	return transport
+}
+
+func (t *Transport) Send(m *ProtocolMessage) error {
+	if t.conn == nil {
+		return fmt.Errorf("transport not connected")
+	}
+	return t.conn.Send(m)
 }
 
 func (t *Transport) MessageCh() <-chan *ProtocolMessage {

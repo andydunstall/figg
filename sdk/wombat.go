@@ -79,9 +79,17 @@ func (w *Wombat) eventLoop() {
 				w.stateSubscriber.NotifyState(state)
 			}
 		case <-pingTicker.C:
-			w.logger.Debug("ping")
+			w.ping()
 		case <-w.doneCh:
 			return
 		}
 	}
+}
+
+func (w *Wombat) ping() {
+	timestamp := time.Now()
+	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
+	m := NewPingMessage(timestamp.UnixMilli())
+	// Ignore any errors. If we're not connected we can't send a ping.
+	w.transport.Send(m)
 }
