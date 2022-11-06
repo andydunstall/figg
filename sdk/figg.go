@@ -14,7 +14,13 @@ type Figg struct {
 
 	stateSubscriber StateSubscriber
 	topics          *Topics
-	pending         *PendingMessages
+
+	// pendingMessages contains protocol messages that must be acknowledged.
+	// On a reconnect all pending messages are retried.
+	pendingMessages *MessageQueue
+	// seqNum is the sequence number of the next protocol message that requires
+	// an acknowledgement.
+	seqNum uint64
 
 	doneCh chan interface{}
 	wg     sync.WaitGroup
@@ -35,10 +41,14 @@ func NewFigg(config *Config) (*Figg, error) {
 }
 
 func (w *Figg) Publish(topic string, m []byte) {
-	// Not worrying about retries yet.
-	if err := w.transport.Send(NewPublishMessage(topic, m)); err != nil {
-		w.pending.Push(NewPublishMessage(topic, m))
-	}
+	seqNum := w.seqNum
+	w.seqNum++
+
+	message := NewPublishMessage(topic, seqNum, m)
+	w.pendingMessages.Push(message, seqNum)
+
+	// Ignore errors. If we fail to send we'll retry on reconnect.
+	w.transport.Send(message)
 }
 
 func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
@@ -82,7 +92,7 @@ func newFigg(config *Config) (*Figg, error) {
 		pingInterval:    pingInterval,
 		stateSubscriber: config.StateSubscriber,
 		topics:          NewTopics(),
-		pending:         NewPendingMessages(),
+		pendingMessages: NewMessageQueue(),
 		doneCh:          make(chan interface{}),
 		wg:              sync.WaitGroup{},
 		logger:          logger,
@@ -120,6 +130,8 @@ func (w *Figg) onMessage(m *ProtocolMessage) {
 	)
 
 	switch m.Type {
+	case TypeACK:
+		w.pendingMessages.Acknowledge(m.ACK.SeqNum)
 	case TypePayload:
 		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message)
 	}
@@ -138,11 +150,12 @@ func (w *Figg) onConnState(s State) {
 }
 
 func (w *Figg) onConnected() {
-	for _, m := range w.pending.Get() {
+	// Send all unacknowledged messages.
+	for _, m := range w.pendingMessages.Messages() {
 		w.transport.Send(m)
 	}
 
-	// Reattach all subscribed topics on connected.
+	// Reattach all subscribed topics.
 	for _, topic := range w.topics.Topics() {
 		w.transport.Send(NewAttachMessage(topic))
 	}

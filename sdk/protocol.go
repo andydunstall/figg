@@ -35,20 +35,24 @@ type AttachedMessage struct{}
 
 type PublishMessage struct {
 	Topic   string
+	SeqNum  uint64
 	Payload []byte
 }
 
-func NewPublishMessage(topic string, payload []byte) *ProtocolMessage {
+func NewPublishMessage(topic string, seqNum uint64, payload []byte) *ProtocolMessage {
 	return &ProtocolMessage{
 		Type: TypePublish,
 		Publish: &PublishMessage{
 			Topic:   topic,
+			SeqNum:  seqNum,
 			Payload: payload,
 		},
 	}
 }
 
-type ACKMessage struct{}
+type ACKMessage struct {
+	SeqNum uint64
+}
 
 type PayloadMessage struct {
 	Topic   string

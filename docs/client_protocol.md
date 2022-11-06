@@ -1,6 +1,9 @@
 # Client Protocol
 This describes how the Figg SDK interacts with the backend.
 
+**Note** This is a work on progress. Need to review properly to ensure theres
+no possiblility of message loss due to transient failures.
+
 ## Transports
 WebSocket is the only supported transport. This was chosen as it is TCP based
 and works in a browser.
@@ -128,7 +131,6 @@ Such as a `ATTACHED` message would have format:
 * Name: `ack`
 * Direction: Server -> Client
 * Fields
-  * `topic` (string)
   * `sequence_number` (uint32)
 
 **PAYLOAD**
