@@ -13,7 +13,7 @@ type Figg struct {
 	pingInterval time.Duration
 
 	stateSubscriber StateSubscriber
-	subscribers     *Subscribers
+	topics          *Topics
 	pending         *PendingMessages
 
 	doneCh chan interface{}
@@ -42,7 +42,7 @@ func (w *Figg) Publish(topic string, m []byte) {
 }
 
 func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
-	w.subscribers.Add(topic, sub)
+	w.topics.Subscribe(topic, sub)
 
 	// TODO(AD) If already attach just add subscriber.
 
@@ -53,6 +53,10 @@ func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
 	// TODO(AD) Only if this is the first subscription for the topic.
 
 	w.transport.Send(NewAttachMessage(topic))
+}
+
+func (w *Figg) Unsubscribe(topic string, sub MessageSubscriber) {
+	w.topics.Unsubscribe(topic, sub)
 }
 
 func (w *Figg) Shutdown() error {
@@ -83,7 +87,7 @@ func newFigg(config *Config) (*Figg, error) {
 		transport:       NewTransport(config.Addr, logger),
 		pingInterval:    pingInterval,
 		stateSubscriber: config.StateSubscriber,
-		subscribers:     NewSubscribers(),
+		topics:          NewTopics(),
 		pending:         NewPendingMessages(),
 		doneCh:          make(chan interface{}),
 		wg:              sync.WaitGroup{},
@@ -123,7 +127,7 @@ func (w *Figg) onMessage(m *ProtocolMessage) {
 
 	switch m.Type {
 	case TypePayload:
-		w.subscribers.OnMessage(m.Payload.Topic, m.Payload.Message)
+		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message)
 	}
 }
 
@@ -145,7 +149,7 @@ func (w *Figg) onConnected() {
 	}
 
 	// Reattach all subscribed topics on connected.
-	for _, topic := range w.subscribers.Topics() {
+	for _, topic := range w.topics.Topics() {
 		w.transport.Send(NewAttachMessage(topic))
 	}
 }
