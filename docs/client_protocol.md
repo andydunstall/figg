@@ -1,10 +1,5 @@
 # Client Protocol
-This describes how the Wombat client interacts with the backend.
-
-Note I'm using terminology:
-* Client: The SDK implementation,
-* Server: The Wombat cluster,
-* User: The developer using the client SDK.
+This describes how the Wombat SDK interacts with the backend.
 
 ## Transports
 WebSocket is the only supported transport. This was chosen as it is TCP based
@@ -35,45 +30,48 @@ If the connection drops clients reconnect. Retries use exponential backoff,
 calculated as `100ms * min(2**num_attempts, 100)`.
 
 ## Topic
-A user opens a topic with `wombat.Topic(name)`. This subscribes to that topic
-so then can received messages, such as with the `topic.MessagesCh()` channel
-in Go, and publish messages with `topic.Publish(message)`.
-
-### Attach
-When the user opens a topic, the client attaches to this topic by sending an
-`ATTACH` message. Once the server has attached to the topic it will respond with
-a `ATTACHED` response. Once attached the server forwrads all messages on the
-topic to the client.
-
 ### Publish
-Published messages are sent with the `PUBLISH` type. This includes the message
-itself, which is just an opaque sequence of bytes, the topic name, and a
-sequence number.
+A user publishes a message by calling `client.Publish(topic, message)`. The
+SDK will send a protocol message with the `PUBLISH` type. This includes the
+users message payload, which is just an opaque seqeuence of bytes, the topic
+name, and a sequence number.
 
-This sequence number must be incremented for each message sent by the client
-(using the same counter for all topics). Though resends must use the same
+This sequence number is incremented for each message sent by the client
+(using the same counter for each connection). Though resends use the same
 sequence number as the initial attempt.
 
 The sequence number is used to acknowledge messages. Once the server has
 processed a message it will respond with a `ACK` message including the
 highest sequence number it has acknowledged.
 
-If messages are not acknowledged within 5 seconds the client should retry.
+If messages are not acknowledged within 2 seconds client retries.
 
 ### Subscribe
-Once attached the server will send all messages received on the topic. These
-processed messages are assigned a unique serial.
+A user subscribes to a channel with `client.Subscribe(topic)`. The SDK will
+attach to this topic by sending an `ATTACH` message with the topic name. Once
+the server has attached (by connecting to the coordinator for that topic) it
+will respond with an `ATTACHED` response. Once attached the server forwards
+all messages on the topic to the client in `PAYLOAD` messages.
 
-The received messages have type `PAYLOAD` and include the topic name, the
-serial and the message payload.
+This `PAYLOAD` message contains the topic, the user payload and a serial
+used to uniquely identify the message on the topic. Note this serial is
+different from the sequence number used when publishing, and is used to
+reattach if the connection drops (see below).
 
-### Reattach
-If the clients connect drops it will reconnect to the server. It will then need
-to re-attach all its topics.
+The SDK then calls the user provided subscriber with the payload containing
+a message published on the topic.
 
-To avoid dropped or duplicate messages, when re-attaching the client must
-include the serial of the last message received on the topic. The server can
-then send all messages since this serial that the client has missed.
+**Reattach**
+
+When the connection to the server is dropped, we could potentially miss
+messages published on the topic.
+
+To handle this, when a new connection is established, the SDK reattaches to
+all previously attached topics and includes the serial of the last message
+on that topic. The server then starts attaches from that point so sends any
+messages we may have missed (as long as that message is still retained by the
+server). The client detects whether we have missed messages when the serial
+in the `ATTACHED` response doesn't match the serial it requested in `ATTACH`.
 
 ## Protocol
 The Wombat protocol uses msgpack to encode all messages. Each protocol message
