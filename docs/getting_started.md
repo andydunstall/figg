@@ -1,2 +1,6 @@
 # Getting Started
-Wombat is a lightweight pub/sub messaging service.
+Wombat is a pub/sub messaging service.
+
+Message streams are split into user defined topics, where users publish to
+topics with `client.publish(topic, message)` and subscribe with
+`client.subscribe(topic, subscriber)`.

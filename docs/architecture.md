@@ -1,28 +1,42 @@
 # Architecture
-The architecture of Wombat is based on Cassandra and Dynamo.
 
-## Consistent Hashing
-The nodes in each region form a hash ring. When a topic is active in a region it
-is assigned to a node in that region using consistent hashing. If the topic
-is active in multiple regions, it will be assigned to one node per region.
+Starting building with only a single node and will build up from there. The plan
+is to eventually support multiple nodes and regions.
 
-## Connection Routing
-Clients should connect to a random node in the cluster, typically using a load
-load balancer. That node then acts as a coordinator for the connection.
+## Message Flow
+The [Client Protocol](client_protocol.md) docs describe the protocol from the
+SDK to a wombat node. This section describes how that message is processed once
+its been received by a Wombat node.
 
-Topics are distributed around the cluster with consistent hashing. So for each
-topic the client is subscribed to, the coordinator connects to the corresponding
-node and forwards messages to the client.
+### Commit Log
+Each topic has a commit log on disk containing the messages on that topic. This
+is similar to how Kafka works as described in the
+[paper](https://notes.stephenholiday.com/Kafka.pdf).
 
-Alternatively clients have could connected to the nodes where the topics its
-subscribing to are assigned directly, though has a few downsides:
-* Each node would have to be routable by the client, which is often not the
-case (such as when nodes are in a private subnet behind a load balancer),
-* Clients would need to create a connect per topic,
-* Fan-out could be limitted as all subscribers for a topic would be connecting
-to the same node.
+When a message arrives it is appended to the commit log for that topic. At
+this point it is considered accepted so an acknowledgement is sent to the
+client.
 
-## Gossip
-Gossip is used to propagate cluster information. Each node joins the gossip and
-sends its state to all other nodes. This state includes the tokens for that
-node (used for consistent hashing) and routing information.
+Note the purpose of the commit log is retention not fault tolerance. The plan
+is to have a configurable number of replicas we send the message too before it
+is accepted. So it doesn't wait for the message to be flushed before
+acknowledging.
+
+### Subscribers
+Once the message has been accepted, it can be sent to the subscribers.
+
+The subscribers on the node (not the SDK subscriber) have a goroutine and an
+offset of the next message they need. They just keep iterating though the topic
+sending the message to the connection, then once up to date block waiting for
+the next message. So the topic just signals these subscribers to wake up and
+check for new messages.
+
+The pull based model means the topic itself doesn't have to worry about blocking
+or sending messages.
+
+## Next
+* Add a cluster where the topics preference list is selected with consistent
+hashing
+  * Use Dynamo/Cassandra style of replication, with a configurable replication
+strategy (both number of nodes to replicate too, and number of replicas that
+must respond syncrously before acknowledging)
