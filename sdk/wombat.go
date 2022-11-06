@@ -13,6 +13,8 @@ type Wombat struct {
 	pingInterval time.Duration
 
 	stateSubscriber StateSubscriber
+	subscribers     *Subscribers
+	pending         *PendingMessages
 
 	doneCh chan interface{}
 	wg     sync.WaitGroup
@@ -32,11 +34,32 @@ func NewWombat(config *Config) (*Wombat, error) {
 	return wombat, nil
 }
 
+func (w *Wombat) Publish(topic string, m []byte) {
+	// Not worrying about retries yet.
+	if err := w.transport.Send(NewPublishMessage(topic, m)); err != nil {
+		w.pending.Push(NewPublishMessage(topic, m))
+	}
+}
+
+func (w *Wombat) Subscribe(topic string, sub MessageSubscriber) {
+	w.subscribers.Add(topic, sub)
+
+	// TODO(AD) If already attach just add subscriber.
+
+	// w.subscribers[topic][sub] = nil
+
+	// TODO(AD) Just trying to view logs for incoming messages for now not
+	// adding subscriber.
+	// TODO(AD) Only if this is the first subscription for the topic.
+
+	w.transport.Send(NewAttachMessage(topic))
+}
+
 func (w *Wombat) Shutdown() error {
-	close(w.doneCh)
 	if err := w.transport.Shutdown(); err != nil {
 		return err
 	}
+	close(w.doneCh)
 	w.wg.Wait()
 	return nil
 }
@@ -60,6 +83,8 @@ func newWombat(config *Config) (*Wombat, error) {
 		transport:       NewTransport(config.Addr, logger),
 		pingInterval:    pingInterval,
 		stateSubscriber: config.StateSubscriber,
+		subscribers:     NewSubscribers(),
+		pending:         NewPendingMessages(),
 		doneCh:          make(chan interface{}),
 		wg:              sync.WaitGroup{},
 		logger:          logger,
@@ -75,11 +100,10 @@ func (w *Wombat) eventLoop() {
 	for {
 		select {
 		case m := <-w.transport.MessageCh():
-			w.logger.Debug(
-				"received message",
-				zap.String("type", TypeToString(m.Type)),
-			)
+			w.onMessage(m)
 		case state := <-w.transport.StateCh():
+			w.onConnState(state)
+
 			if w.stateSubscriber != nil {
 				w.stateSubscriber.NotifyState(state)
 			}
@@ -88,6 +112,41 @@ func (w *Wombat) eventLoop() {
 		case <-w.doneCh:
 			return
 		}
+	}
+}
+
+func (w *Wombat) onMessage(m *ProtocolMessage) {
+	w.logger.Debug(
+		"on message",
+		zap.String("type", TypeToString(m.Type)),
+	)
+
+	switch m.Type {
+	case TypePayload:
+		w.subscribers.OnMessage(m.Payload.Topic, m.Payload.Message)
+	}
+}
+
+func (w *Wombat) onConnState(s State) {
+	w.logger.Debug(
+		"on conn state",
+		zap.String("type", StateToString(s)),
+	)
+
+	switch s {
+	case StateConnected:
+		w.onConnected()
+	}
+}
+
+func (w *Wombat) onConnected() {
+	for _, m := range w.pending.Get() {
+		w.transport.Send(m)
+	}
+
+	// Reattach all subscribed topics on connected.
+	for _, topic := range w.subscribers.Topics() {
+		w.transport.Send(NewAttachMessage(topic))
 	}
 }
 

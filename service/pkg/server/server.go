@@ -88,6 +88,14 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		switch m.Type {
 		case conn.TypePing:
 			c.Send(conn.NewPongMessage(m.Ping.Timestamp))
+		case conn.TypeAttach:
+			c.Send(conn.NewAttachedMessage())
+		case conn.TypePublish:
+			c.Send(conn.NewPayloadMessage(
+				m.Publish.Topic,
+				0,
+				m.Publish.Payload,
+			))
 		}
 	}
 }

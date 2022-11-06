@@ -18,15 +18,43 @@ const (
 	TypePong     = MessageType(7)
 )
 
-type AttachMessage struct{}
+type AttachMessage struct {
+	Topic string
+}
+
+func NewAttachMessage(topic string) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypeAttach,
+		Attach: &AttachMessage{
+			Topic: topic,
+		},
+	}
+}
 
 type AttachedMessage struct{}
 
-type PublishMessage struct{}
+type PublishMessage struct {
+	Topic   string
+	Payload []byte
+}
+
+func NewPublishMessage(topic string, payload []byte) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypePublish,
+		Publish: &PublishMessage{
+			Topic:   topic,
+			Payload: payload,
+		},
+	}
+}
 
 type ACKMessage struct{}
 
-type PayloadMessage struct{}
+type PayloadMessage struct {
+	Topic   string
+	Offset  uint64
+	Message []byte
+}
 
 type PingMessage struct {
 	// Timestamp is the time in milliseconds the ping message was sent.

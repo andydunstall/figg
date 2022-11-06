@@ -4,7 +4,8 @@ package wombat
 // client, such as connected, disconnected etc. This will only be called from
 // a single goroutine.
 type StateSubscriber interface {
-	// NotifyState notifies the subscriber about a state change.
+	// NotifyState notifies the subscriber about a state change. Note this must
+	// not block as is called syncrously.
 	NotifyState(state State)
 }
 

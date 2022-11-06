@@ -30,6 +30,6 @@ implement. An implementation exists for writing all messages to a channel,
 
 ```go
 sub := NewChannelMessageSubscriber()
-topic := client.Subscribe("foo", sub)
+client.Subscribe("foo", sub)
 m := <-sub
 ```

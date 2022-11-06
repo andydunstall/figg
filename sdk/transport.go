@@ -50,6 +50,12 @@ func (t *Transport) Send(m *ProtocolMessage) error {
 	if t.conn == nil {
 		return fmt.Errorf("transport not connected")
 	}
+
+	t.logger.Debug(
+		"send message",
+		zap.String("type", TypeToString(m.Type)),
+	)
+
 	return t.conn.Send(m)
 }
 
@@ -79,6 +85,10 @@ func (t *Transport) recvLoop() {
 	defer t.wg.Done()
 
 	for {
+		if s := atomic.LoadInt32(&t.shutdown); s == 1 {
+			return
+		}
+
 		if t.conn == nil {
 			if err := t.connect(); err != nil {
 				continue

@@ -22,13 +22,35 @@ type AttachMessage struct{}
 
 type AttachedMessage struct{}
 
-type PublishMessage struct{}
+func NewAttachedMessage() *ProtocolMessage {
+	return &ProtocolMessage{
+		Type:     TypeAttached,
+		Attached: &AttachedMessage{},
+	}
+}
+
+type PublishMessage struct {
+	Topic   string
+	Payload []byte
+}
 
 type ACKMessage struct{}
 
 type PayloadMessage struct {
+	Topic   string
 	Offset  uint64
 	Message []byte
+}
+
+func NewPayloadMessage(topic string, offset uint64, m []byte) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypePayload,
+		Payload: &PayloadMessage{
+			Topic:   topic,
+			Offset:  offset,
+			Message: m,
+		},
+	}
 }
 
 type PingMessage struct {
