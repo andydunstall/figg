@@ -5,8 +5,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/andydunstall/wombat/service/pkg/config"
-	"github.com/andydunstall/wombat/service/pkg/server"
+	"github.com/andydunstall/figg/service/pkg/config"
+	"github.com/andydunstall/figg/service/pkg/server"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +22,7 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 }
 
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
-	logger.Info("starting wombat")
+	logger.Info("starting figg")
 
 	server := server.NewServer(logger)
 

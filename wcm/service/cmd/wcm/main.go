@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/andydunstall/wombat/wcm/service/pkg/server"
+	"github.com/andydunstall/figg/wcm/service/pkg/server"
 	"go.uber.org/zap"
 	"net"
 )

@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 import (
 	"time"
@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	// Addr is the address of the wombat service.
+	// Addr is the address of the figg service.
 	Addr string
 
 	// StateSubscriber subscribes to events about the current state of the

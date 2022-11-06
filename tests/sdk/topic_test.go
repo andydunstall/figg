@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andydunstall/wombat/sdk"
-	"github.com/andydunstall/wombat/wcm/sdk"
+	"github.com/andydunstall/figg/sdk"
+	"github.com/andydunstall/figg/wcm/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -20,7 +20,7 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
-	client, err := wombat.NewWombat(&wombat.Config{
+	client, err := figg.NewFigg(&figg.Config{
 		Addr:   node.Addr,
 		Logger: logger,
 	})
@@ -30,7 +30,7 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 	// TODO(AD) wait to connect
 	<-time.After(time.Second)
 
-	messageSubscriber := wombat.NewChannelMessageSubscriber()
+	messageSubscriber := figg.NewChannelMessageSubscriber()
 	client.Subscribe("foo", messageSubscriber)
 
 	client.Publish("foo", []byte("bar"))

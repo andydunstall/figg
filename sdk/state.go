@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 type State int
 

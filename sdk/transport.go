@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 import (
 	"fmt"
@@ -11,11 +11,11 @@ import (
 )
 
 type Transport struct {
-	// addr is the address of the wombat service.
+	// addr is the address of the figg service.
 	addr string
-	// conn is the connection to a wombat server or nil if not connected.
+	// conn is the connection to a figg server or nil if not connected.
 	conn *WSConnection
-	// connectAttempts is the number of attempts to connect to wombat without
+	// connectAttempts is the number of attempts to connect to figg without
 	// being able to connect.
 	connectAttempts int
 

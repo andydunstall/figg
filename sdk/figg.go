@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Wombat struct {
+type Figg struct {
 	transport    *Transport
 	pingInterval time.Duration
 
@@ -22,26 +22,26 @@ type Wombat struct {
 	logger *zap.Logger
 }
 
-func NewWombat(config *Config) (*Wombat, error) {
-	wombat, err := newWombat(config)
+func NewFigg(config *Config) (*Figg, error) {
+	figg, err := newFigg(config)
 	if err != nil {
 		return nil, err
 	}
 
-	wombat.wg.Add(1)
-	go wombat.eventLoop()
+	figg.wg.Add(1)
+	go figg.eventLoop()
 
-	return wombat, nil
+	return figg, nil
 }
 
-func (w *Wombat) Publish(topic string, m []byte) {
+func (w *Figg) Publish(topic string, m []byte) {
 	// Not worrying about retries yet.
 	if err := w.transport.Send(NewPublishMessage(topic, m)); err != nil {
 		w.pending.Push(NewPublishMessage(topic, m))
 	}
 }
 
-func (w *Wombat) Subscribe(topic string, sub MessageSubscriber) {
+func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
 	w.subscribers.Add(topic, sub)
 
 	// TODO(AD) If already attach just add subscriber.
@@ -55,7 +55,7 @@ func (w *Wombat) Subscribe(topic string, sub MessageSubscriber) {
 	w.transport.Send(NewAttachMessage(topic))
 }
 
-func (w *Wombat) Shutdown() error {
+func (w *Figg) Shutdown() error {
 	if err := w.transport.Shutdown(); err != nil {
 		return err
 	}
@@ -64,9 +64,9 @@ func (w *Wombat) Shutdown() error {
 	return nil
 }
 
-func newWombat(config *Config) (*Wombat, error) {
+func newFigg(config *Config) (*Figg, error) {
 	if config.Addr == "" {
-		return nil, fmt.Errorf("config missing wombat address")
+		return nil, fmt.Errorf("config missing figg address")
 	}
 
 	pingInterval := config.PingInterval
@@ -79,7 +79,7 @@ func newWombat(config *Config) (*Wombat, error) {
 		logger = zap.NewNop()
 	}
 
-	return &Wombat{
+	return &Figg{
 		transport:       NewTransport(config.Addr, logger),
 		pingInterval:    pingInterval,
 		stateSubscriber: config.StateSubscriber,
@@ -91,7 +91,7 @@ func newWombat(config *Config) (*Wombat, error) {
 	}, nil
 }
 
-func (w *Wombat) eventLoop() {
+func (w *Figg) eventLoop() {
 	defer w.wg.Done()
 
 	pingTicker := time.NewTicker(w.pingInterval)
@@ -115,7 +115,7 @@ func (w *Wombat) eventLoop() {
 	}
 }
 
-func (w *Wombat) onMessage(m *ProtocolMessage) {
+func (w *Figg) onMessage(m *ProtocolMessage) {
 	w.logger.Debug(
 		"on message",
 		zap.String("type", TypeToString(m.Type)),
@@ -127,7 +127,7 @@ func (w *Wombat) onMessage(m *ProtocolMessage) {
 	}
 }
 
-func (w *Wombat) onConnState(s State) {
+func (w *Figg) onConnState(s State) {
 	w.logger.Debug(
 		"on conn state",
 		zap.String("type", StateToString(s)),
@@ -139,7 +139,7 @@ func (w *Wombat) onConnState(s State) {
 	}
 }
 
-func (w *Wombat) onConnected() {
+func (w *Figg) onConnected() {
 	for _, m := range w.pending.Get() {
 		w.transport.Send(m)
 	}
@@ -150,7 +150,7 @@ func (w *Wombat) onConnected() {
 	}
 }
 
-func (w *Wombat) ping() {
+func (w *Figg) ping() {
 	timestamp := time.Now()
 	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
 	m := NewPingMessage(timestamp.UnixMilli())

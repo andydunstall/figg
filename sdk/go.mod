@@ -1,4 +1,4 @@
-module github.com/andydunstall/wombat/sdk
+module github.com/andydunstall/figg/sdk
 
 go 1.19
 

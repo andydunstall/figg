@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 import (
 	"fmt"

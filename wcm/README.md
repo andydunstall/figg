@@ -1,18 +1,18 @@
-# WCM (Wombat Cluster Manager)
+# WCM (Figg Cluster Manager)
 
-A tool for launching Wombat clusters on localhost, used for local development
+A tool for launching Figg clusters on localhost, used for local development
 and system testing.
 
 This is inspired by [CCM (Cassandra Cluster Manager)](https://github.com/riptano/ccm)
 which is used by Cassandra.
 
-WCM is a server written in Go that manages Wombat clusters, exposing a REST API
-to issue commands. It runs Wombat nodes in their own goroutine as part of
-the WCM process. This means it must be restarted when then Wombat service
+WCM is a server written in Go that manages Figg clusters, exposing a REST API
+to issue commands. It runs Figg nodes in their own goroutine as part of
+the WCM process. This means it must be restarted when then Figg service
 changes, though running system tests should be rare so shouldn't be a big issue.
 
 ## Usage
-WCM exposes an HTTP API to manage Wombat clusters. Theres also a [Go SDK](./sdk).
+WCM exposes an HTTP API to manage Figg clusters. Theres also a [Go SDK](./sdk).
 
 ### Cluster
 A cluster manages a set of nodes.
@@ -30,7 +30,7 @@ DELETE /clusters/{clusterID}
 This will stop all nodes in the cluster.
 
 ### Nodes
-Wombat service nodes can be added with:
+Figg service nodes can be added with:
 ```
 POST /clusters/{clusterID}/nodes
 ```

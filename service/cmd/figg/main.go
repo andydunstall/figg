@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/wombat/service"
-	"github.com/andydunstall/wombat/service/pkg/config"
+	"github.com/andydunstall/figg/service"
+	"github.com/andydunstall/figg/service/pkg/config"
 	"go.uber.org/zap"
 )
 

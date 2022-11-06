@@ -4,7 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/andydunstall/wombat/service/pkg/topic"
+	"github.com/andydunstall/figg/service/pkg/topic"
 )
 
 // Subscription reads messages from the topic and sends to the connection.

@@ -3,7 +3,7 @@ package conn
 import (
 	"testing"
 
-	"github.com/andydunstall/wombat/service/pkg/topic"
+	"github.com/andydunstall/figg/service/pkg/topic"
 	"github.com/stretchr/testify/assert"
 )
 

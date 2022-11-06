@@ -1,4 +1,4 @@
-module github.com/andydunstall/wombat/service
+module github.com/andydunstall/figg/service
 
 go 1.19
 

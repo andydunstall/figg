@@ -1,13 +1,13 @@
-module github.com/andydunstall/wombat/tests
+module github.com/andydunstall/figg/tests
 
 go 1.19
 
-require github.com/andydunstall/wombat/sdk v0.0.0
+require github.com/andydunstall/figg/sdk v0.0.0
 
-replace github.com/andydunstall/wombat/sdk => ../sdk
+replace github.com/andydunstall/figg/sdk => ../sdk
 
 require (
-	github.com/andydunstall/wombat/wcm/sdk v0.0.0
+	github.com/andydunstall/figg/wcm/sdk v0.0.0
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.23.0
 )
@@ -23,4 +23,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/andydunstall/wombat/wcm/sdk => ../wcm/sdk
+replace github.com/andydunstall/figg/wcm/sdk => ../wcm/sdk

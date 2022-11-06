@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/andydunstall/wombat/wcm/service/pkg/cluster"
+	"github.com/andydunstall/figg/wcm/service/pkg/cluster"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

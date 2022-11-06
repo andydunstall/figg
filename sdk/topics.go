@@ -1,1 +1,1 @@
-package wombat
+package figg

@@ -1,5 +1,5 @@
 # Client Protocol
-This describes how the Wombat SDK interacts with the backend.
+This describes how the Figg SDK interacts with the backend.
 
 ## Transports
 WebSocket is the only supported transport. This was chosen as it is TCP based
@@ -74,7 +74,7 @@ server). The client detects whether we have missed messages when the serial
 in the `ATTACHED` response doesn't match the serial it requested in `ATTACH`.
 
 ## Protocol
-The Wombat protocol uses msgpack to encode all messages. Each protocol message
+The Figg protocol uses msgpack to encode all messages. Each protocol message
 has a `uint16` type and format:
 ```
 {

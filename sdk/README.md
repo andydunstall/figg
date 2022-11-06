@@ -3,14 +3,14 @@
 ## Usage
 
 **Connect**
-Connects to a wombat cluster. `Addr` is expected to be a load balancer that
-distributes connections evenly among wombat nodes in the nearest region.
+Connects to a figg cluster. `Addr` is expected to be a load balancer that
+distributes connections evenly among figg nodes in the nearest region.
 
 ```go
 config := &Config{
-	Addr: "my-wombat-lb.com",
+	Addr: "my-figg-lb.com",
 }
-client := wombat.NewWombat(config)
+client := figg.NewFigg(config)
 ```
 
 ### Publish

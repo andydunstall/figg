@@ -1,4 +1,4 @@
-package wombat
+package figg
 
 // MessageSubscriber receives messages from a subscribed topic. This will only
 // be called from a single goroutine.

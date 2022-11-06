@@ -6,8 +6,8 @@ import (
 	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
-	"github.com/andydunstall/wombat/service"
-	"github.com/andydunstall/wombat/service/pkg/config"
+	"github.com/andydunstall/figg/service"
+	"github.com/andydunstall/figg/service/pkg/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, lo
 	listenAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 	proxyAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 
-	proxyID := fmt.Sprintf("wombat_%s", id)
+	proxyID := fmt.Sprintf("figg_%s", id)
 	proxy, err := toxiproxyClient.CreateProxy(proxyID, proxyAddr, listenAddr)
 	if err != nil {
 		return nil, err

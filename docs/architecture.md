@@ -5,8 +5,8 @@ is to eventually support multiple nodes and regions.
 
 ## Message Flow
 The [Client Protocol](client_protocol.md) docs describe the protocol from the
-SDK to a wombat node. This section describes how that message is processed once
-its been received by a Wombat node.
+SDK to a figg node. This section describes how that message is processed once
+its been received by a Figg node.
 
 ### Commit Log
 Each topic has a commit log on disk containing the messages on that topic. This

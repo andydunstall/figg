@@ -1,6 +1,6 @@
-package wombat
+package figg
 
-// StateSubscriber receives notifications about state changes to the wombat
+// StateSubscriber receives notifications about state changes to the figg
 // client, such as connected, disconnected etc. This will only be called from
 // a single goroutine.
 type StateSubscriber interface {

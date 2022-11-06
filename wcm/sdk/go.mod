@@ -1,3 +1,3 @@
-module github.com/andydunstall/wombat/wcm/sdk
+module github.com/andydunstall/figg/wcm/sdk
 
 go 1.19
