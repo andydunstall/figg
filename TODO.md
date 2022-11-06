@@ -1,8 +1,9 @@
 # TODO
 
+## Service
+* Refactor and add test coverage for topic
+
 ## Connection
 * Add heartbeats to detect disconnected connections
-
-## Topic
-* Add ATTACH/ATTACHED response (not worrying about reconnections yet)
-* Add simple publish (not worrying about ACK/retries yet)
+  * Such as if you have a firewall blocking all packets you'll never see an
+RST or CLOSE

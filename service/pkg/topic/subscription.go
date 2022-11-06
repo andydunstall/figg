@@ -1,18 +1,23 @@
-package conn
+package topic
 
 import (
 	"sync"
 	"sync/atomic"
-
-	"github.com/andydunstall/figg/service/pkg/topic"
 )
+
+type TopicMessage struct {
+	Topic   string
+	Message []byte
+	Offset  uint64
+}
 
 // Subscription reads messages from the topic and sends to the connection.
 type Subscription struct {
-	topic *topic.Topic
-	conn  Connection
+	topic *Topic
 	// lastOffset is the offset of the last processed message in the topic.
 	lastOffset uint64
+
+	messageCh chan<- TopicMessage
 
 	cv       *sync.Cond
 	mu       *sync.Mutex
@@ -21,21 +26,21 @@ type Subscription struct {
 
 // NewSubscription creates a subscription to the given topic starting from the
 // next message in the topic.
-func NewSubscription(topic *topic.Topic, conn Connection) *Subscription {
+func NewSubscription(messageCh chan<- TopicMessage, topic *Topic) *Subscription {
 	// Use the offset of the last message in the topic.
-	return NewSubscriptionWithOffset(topic, conn, topic.Offset())
+	return NewSubscriptionFromOffset(messageCh, topic, topic.Offset())
 }
 
-// NewSubscriptionWithOffset creates a subscription to the given topic, starting
+// NewSubscriptionFromOffset creates a subscription to the given topic, starting
 // at the next message after the given offset. If the offset is less than the
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
-func NewSubscriptionWithOffset(topic *topic.Topic, conn Connection, lastOffset uint64) *Subscription {
+func NewSubscriptionFromOffset(messageCh chan<- TopicMessage, topic *Topic, lastOffset uint64) *Subscription {
 	mu := &sync.Mutex{}
 	s := &Subscription{
 		topic:      topic,
-		conn:       conn,
 		lastOffset: lastOffset,
+		messageCh:  messageCh,
 		cv:         sync.NewCond(mu),
 		mu:         mu,
 	}
@@ -79,23 +84,12 @@ func (s *Subscription) sendLoop() {
 				break
 			}
 
-			protocolMessage := &ProtocolMessage{
-				Type: TypePayload,
-				Payload: &PayloadMessage{
-					Topic:   s.topic.Name(),
-					Offset:  offset,
-					Message: m,
-				},
+			s.messageCh <- TopicMessage{
+				Topic:   s.topic.Name(),
+				Message: m,
+				Offset:  offset,
 			}
-
-			// Only update the offset once its been sent to the subscriber. If
-			// the connection closes expect the read loop to close the
-			// subscriber and the client can resume from the last offset.
-			if err := s.conn.Send(protocolMessage); err != nil {
-				break
-			} else {
-				s.lastOffset = offset
-			}
+			s.lastOffset = offset
 		}
 
 		// Block until we are either shut down or there is a new message on

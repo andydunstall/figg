@@ -60,19 +60,33 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	c := conn.NewProtocolConnection(transport)
 	defer c.Close()
 
+	subscriptions := topic.NewSubscriptions(s.broker)
+	defer subscriptions.Shutdown()
+
+	doneCh := make(chan interface{})
+
+	go func() {
+		for {
+			select {
+			case m := <-subscriptions.MessageCh():
+				c.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+			case <-doneCh:
+				return
+			}
+		}
+	}()
+
 	for {
 		m, err := c.Recv()
 		if err != nil {
 			s.logger.Debug("failed to read from connection", zap.Error(err))
-			return
+			break
 		}
 		switch m.Type {
 		case conn.TypePing:
 			c.Send(conn.NewPongMessage(m.Ping.Timestamp))
 		case conn.TypeAttach:
-			topic := s.broker.GetTopic(m.Attach.Topic)
-			sub := conn.NewSubscription(topic, c)
-			topic.Subscribe(sub)
+			subscriptions.AddSubscription(m.Attach.Topic)
 			c.Send(conn.NewAttachedMessage())
 		case conn.TypePublish:
 			topic := s.broker.GetTopic(m.Publish.Topic)
@@ -80,6 +94,8 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 			c.Send(conn.NewACKMessage(m.Publish.SeqNum))
 		}
 	}
+
+	close(doneCh)
 }
 
 func (s *Server) Serve(lis net.Listener) error {

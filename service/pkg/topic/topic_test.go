@@ -7,7 +7,7 @@ import (
 )
 
 func TestTopic_PublishMultipleMessages(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("foo")
 
 	topic.Publish([]byte("foo"))
 	topic.Publish([]byte("bar"))
@@ -21,7 +21,7 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("foo")
 
 	topic.Publish([]byte("foo"))
 
@@ -33,13 +33,13 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 }
 
 func TestTopic_GetInitialMessage(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("foo")
 
 	_, _, ok := topic.GetMessage(topic.Offset())
 	assert.False(t, ok)
 }
 
 func TestTopic_GetInitialOffset(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("foo")
 	assert.Equal(t, uint64(0), topic.Offset())
 }
