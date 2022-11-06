@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/andydunstall/figg/service/pkg/conn"
@@ -54,30 +53,12 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	addr := ws.RemoteAddr().String()
 	s.logger.Debug(
 		"ws stream connected",
-		// zap.String("topic", topicName),
 		zap.String("addr", addr),
-		zap.String("offset", r.URL.Query().Get("offset")),
 	)
 
-	t := s.broker.GetTopic("tmp")
 	transport := conn.NewWSTransport(ws)
 	c := conn.NewProtocolConnection(transport)
 	defer c.Close()
-
-	var sub *conn.Subscription
-	if r.URL.Query().Get("offset") != "" {
-		offset, err := strconv.ParseUint(r.URL.Query().Get("offset"), 10, 64)
-		if err != nil {
-			s.logger.Debug("invalid offset param", zap.Error(err))
-			// Fall back to the latest message if the offset is invalid.
-			sub = conn.NewSubscription(t, c)
-		} else {
-			sub = conn.NewSubscriptionWithOffset(t, c, offset)
-		}
-	} else {
-		sub = conn.NewSubscription(t, c)
-	}
-	defer sub.Shutdown()
 
 	for {
 		m, err := c.Recv()
