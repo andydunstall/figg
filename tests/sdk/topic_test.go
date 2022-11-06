@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"testing"
-	"time"
 
 	"github.com/andydunstall/figg/sdk"
 	"github.com/andydunstall/figg/wcm/sdk"
@@ -26,9 +25,6 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	defer client.Shutdown()
-
-	// TODO(AD) wait to connect
-	<-time.After(time.Second)
 
 	messageSubscriber := figg.NewChannelMessageSubscriber()
 	client.Subscribe("foo", messageSubscriber)
