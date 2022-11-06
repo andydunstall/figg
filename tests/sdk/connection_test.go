@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/andydunstall/figg/sdk"
-	"github.com/andydunstall/figg/wcm/sdk"
+	"github.com/andydunstall/figg/fcm/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ func waitForStateWithTimeout(stateSubscriber *figg.ChannelStateSubscriber, timeo
 
 // Tests the SDK connects when figg is reachable.
 func TestConnection_Connect(t *testing.T) {
-	cluster, err := wcm.NewCluster()
+	cluster, err := fcm.NewCluster()
 	assert.Nil(t, err)
 	defer cluster.Shutdown()
 
@@ -46,7 +46,7 @@ func TestConnection_Connect(t *testing.T) {
 // Tests if figg is unreachable when the SDK initally tries to connect, it
 // retries and succeeds once figg is reachable.
 func TestConnection_ConnectOnceReachable(t *testing.T) {
-	cluster, err := wcm.NewCluster()
+	cluster, err := fcm.NewCluster()
 	assert.Nil(t, err)
 	defer cluster.Shutdown()
 
@@ -78,7 +78,7 @@ func TestConnection_ConnectOnceReachable(t *testing.T) {
 // Tests if the connection to figg is disconnected the SDK detects the
 // disconnection and tries to reconnect.
 func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
-	cluster, err := wcm.NewCluster()
+	cluster, err := fcm.NewCluster()
 	assert.Nil(t, err)
 	defer cluster.Shutdown()
 

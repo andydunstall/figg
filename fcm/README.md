@@ -1,4 +1,4 @@
-# WCM (Figg Cluster Manager)
+# FCM (Figg Cluster Manager)
 
 A tool for launching Figg clusters on localhost, used for local development
 and system testing.
@@ -6,13 +6,13 @@ and system testing.
 This is inspired by [CCM (Cassandra Cluster Manager)](https://github.com/riptano/ccm)
 which is used by Cassandra.
 
-WCM is a server written in Go that manages Figg clusters, exposing a REST API
+FCM is a server written in Go that manages Figg clusters, exposing a REST API
 to issue commands. It runs Figg nodes in their own goroutine as part of
-the WCM process. This means it must be restarted when then Figg service
+the FCM process. This means it must be restarted when then Figg service
 changes, though running system tests should be rare so shouldn't be a big issue.
 
 ## Usage
-WCM exposes an HTTP API to manage Figg clusters. Theres also a [Go SDK](./sdk).
+FCM exposes an HTTP API to manage Figg clusters. Theres also a [Go SDK](./sdk).
 
 ### Cluster
 A cluster manages a set of nodes.
@@ -44,7 +44,7 @@ DELETE /clusters/{clusterID}/nodes/{nodeID}
 Which will stop the node and wait for it to exit.
 
 ### Chaos
-WCM adds a [toxiproxy](https://github.com/Shopify/toxiproxy) proxy for each
+FCM adds a [toxiproxy](https://github.com/Shopify/toxiproxy) proxy for each
 node. This makes it easy to inject chaos into the cluster.
 
 **Enable/Disable A Node**

@@ -1,4 +1,4 @@
-module github.com/andydunstall/figg/wcm/service
+module github.com/andydunstall/figg/fcm/service
 
 go 1.19
 

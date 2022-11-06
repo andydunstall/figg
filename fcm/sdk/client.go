@@ -1,4 +1,4 @@
-package wcm
+package fcm
 
 import (
 	"fmt"

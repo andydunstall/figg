@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/andydunstall/figg/sdk"
-	"github.com/andydunstall/figg/wcm/sdk"
+	"github.com/andydunstall/figg/fcm/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
 func TestTopic_PublishSubscribe(t *testing.T) {
-	cluster, err := wcm.NewCluster()
+	cluster, err := fcm.NewCluster()
 	assert.Nil(t, err)
 	defer cluster.Shutdown()
 
