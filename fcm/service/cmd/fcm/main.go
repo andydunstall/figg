@@ -14,7 +14,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	logger.Info("starting fcm service")
+	logger.Info("starting fcm service", zap.String("addr", Addr))
 
 	lis, err := net.Listen("tcp", Addr)
 	if err != nil {
