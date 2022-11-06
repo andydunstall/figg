@@ -6,6 +6,7 @@ Figg is a lightweight pub/sub messaging service.
 ## Components
 * [`service/`](./service): Backend Figg service,
 * [`sdk/`](./sdk): Go SDK client library,
+* [`cli/`](./cli): Figg CLI,
 * [`docs/`](./docs): Documentation on usage and architecture,
 * [`tests/`](./tests): System tests,
 * [`fcm/`](./fcm): Figg cluster manager.
