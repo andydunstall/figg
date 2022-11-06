@@ -1,6 +1,7 @@
 package figg
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -80,4 +81,18 @@ func TestTopics_SubscribeTopicWithMultipleSubscriptions(t *testing.T) {
 	b, ok = sub2.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("foo"), b)
+}
+
+func TestTopics_ListSubscribedTopics(t *testing.T) {
+	topics := NewTopics()
+
+	sub1 := NewQueueMessageSubscriber()
+	assert.True(t, topics.Subscribe("topic1", sub1))
+	sub2 := NewQueueMessageSubscriber()
+	assert.True(t, topics.Subscribe("topic2", sub2))
+
+	names := topics.Topics()
+	sort.Strings(names)
+
+	assert.Equal(t, []string{"topic1", "topic2"}, names)
 }

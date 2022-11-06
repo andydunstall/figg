@@ -18,7 +18,11 @@ func NewTopics() *Topics {
 
 // Topics returns a list of the names of the attached topics.
 func (t *Topics) Topics() []string {
-	return []string{}
+	topics := []string{}
+	for name, _ := range t.topics {
+		topics = append(topics, name)
+	}
+	return topics
 }
 
 func (t *Topics) OnMessage(topicName string, m []byte) {

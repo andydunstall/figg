@@ -18,7 +18,9 @@ const (
 	TypePong     = MessageType(7)
 )
 
-type AttachMessage struct{}
+type AttachMessage struct {
+	Topic string
+}
 
 type AttachedMessage struct{}
 
@@ -31,10 +33,22 @@ func NewAttachedMessage() *ProtocolMessage {
 
 type PublishMessage struct {
 	Topic   string
+	SeqNum  uint64
 	Payload []byte
 }
 
-type ACKMessage struct{}
+type ACKMessage struct {
+	SeqNum uint64
+}
+
+func NewACKMessage(seqNum uint64) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypeACK,
+		ACK: &ACKMessage{
+			SeqNum: seqNum,
+		},
+	}
+}
 
 type PayloadMessage struct {
 	Topic   string

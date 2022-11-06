@@ -131,8 +131,10 @@ func (w *Figg) onMessage(m *ProtocolMessage) {
 
 	switch m.Type {
 	case TypeACK:
+		w.logger.Debug("on ack", zap.Uint64("seq-num", m.ACK.SeqNum))
 		w.pendingMessages.Acknowledge(m.ACK.SeqNum)
 	case TypePayload:
+		w.logger.Debug("on payload", zap.String("topic", m.Payload.Topic))
 		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message)
 	}
 }
@@ -150,14 +152,15 @@ func (w *Figg) onConnState(s State) {
 }
 
 func (w *Figg) onConnected() {
+	// Reattach all subscribed topics.
+	for _, topic := range w.topics.Topics() {
+		w.logger.Debug("reattaching", zap.String("topic", topic))
+		w.transport.Send(NewAttachMessage(topic))
+	}
+
 	// Send all unacknowledged messages.
 	for _, m := range w.pendingMessages.Messages() {
 		w.transport.Send(m)
-	}
-
-	// Reattach all subscribed topics.
-	for _, topic := range w.topics.Topics() {
-		w.transport.Send(NewAttachMessage(topic))
 	}
 }
 

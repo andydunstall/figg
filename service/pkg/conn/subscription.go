@@ -82,6 +82,7 @@ func (s *Subscription) sendLoop() {
 			protocolMessage := &ProtocolMessage{
 				Type: TypePayload,
 				Payload: &PayloadMessage{
+					Topic:   s.topic.Name(),
 					Offset:  offset,
 					Message: m,
 				},

@@ -70,13 +70,14 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		case conn.TypePing:
 			c.Send(conn.NewPongMessage(m.Ping.Timestamp))
 		case conn.TypeAttach:
+			topic := s.broker.GetTopic(m.Attach.Topic)
+			sub := conn.NewSubscription(topic, c)
+			topic.Subscribe(sub)
 			c.Send(conn.NewAttachedMessage())
 		case conn.TypePublish:
-			c.Send(conn.NewPayloadMessage(
-				m.Publish.Topic,
-				0,
-				m.Publish.Payload,
-			))
+			topic := s.broker.GetTopic(m.Publish.Topic)
+			topic.Publish(m.Publish.Payload)
+			c.Send(conn.NewACKMessage(m.Publish.SeqNum))
 		}
 	}
 }

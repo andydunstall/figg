@@ -9,19 +9,25 @@ type Subscription interface {
 }
 
 type Topic struct {
+	name        string
 	subscribers map[Subscription]interface{}
 	messages    map[uint64][]byte
 	offset      uint64
 	mu          sync.RWMutex
 }
 
-func NewTopic() *Topic {
+func NewTopic(name string) *Topic {
 	return &Topic{
+		name:        name,
 		subscribers: map[Subscription]interface{}{},
 		messages:    map[uint64][]byte{},
 		offset:      0,
 		mu:          sync.RWMutex{},
 	}
+}
+
+func (t *Topic) Name() string {
+	return t.name
 }
 
 // Offset returns the offset of the last message processed.

@@ -23,7 +23,7 @@ func (b *Broker) GetTopic(name string) *Topic {
 	if topic, ok := b.topics[name]; ok {
 		return topic
 	}
-	topic := NewTopic()
+	topic := NewTopic(name)
 	b.topics[name] = topic
 	return topic
 }
