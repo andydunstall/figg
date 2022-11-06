@@ -42,17 +42,11 @@ func (w *Figg) Publish(topic string, m []byte) {
 }
 
 func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
-	w.topics.Subscribe(topic, sub)
-
-	// TODO(AD) If already attach just add subscriber.
-
-	// w.subscribers[topic][sub] = nil
-
-	// TODO(AD) Just trying to view logs for incoming messages for now not
-	// adding subscriber.
-	// TODO(AD) Only if this is the first subscription for the topic.
-
-	w.transport.Send(NewAttachMessage(topic))
+	if w.topics.Subscribe(topic, sub) {
+		// Note if we arn't connected this won't send an attach, but once
+		// we become suspended we attach to all subscribed channels.
+		w.transport.Send(NewAttachMessage(topic))
+	}
 }
 
 func (w *Figg) Unsubscribe(topic string, sub MessageSubscriber) {

@@ -25,11 +25,15 @@ func (t *Topic) OnMessage(m []byte) {
 	}
 }
 
-func (t *Topic) Subscribe(s MessageSubscriber) {
+// Subscribes to the topic. Returns true if this is the first subscriber, false
+// otherwise.
+func (t *Topic) Subscribe(s MessageSubscriber) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	activated := len(t.subscribers) == 0
 	t.subscribers[s] = struct{}{}
+	return activated
 }
 
 func (t *Topic) Unsubscribe(s MessageSubscriber) {

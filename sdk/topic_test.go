@@ -43,9 +43,9 @@ func TestTopic_MultipleSubscribers(t *testing.T) {
 	topic := NewTopic()
 
 	sub1 := NewQueueMessageSubscriber()
-	topic.Subscribe(sub1)
+	assert.True(t, topic.Subscribe(sub1))
 	sub2 := NewQueueMessageSubscriber()
-	topic.Subscribe(sub2)
+	assert.False(t, topic.Subscribe(sub2))
 
 	topic.OnMessage([]byte("foo"))
 

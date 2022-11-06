@@ -33,7 +33,9 @@ func (t *Topics) OnMessage(topicName string, m []byte) {
 	topic.OnMessage(m)
 }
 
-func (t *Topics) Subscribe(topicName string, s MessageSubscriber) {
+// Subscribes to the given topic. Returns true if this is the first subscriber
+// for the topic, false otherwise.
+func (t *Topics) Subscribe(topicName string, s MessageSubscriber) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -43,7 +45,7 @@ func (t *Topics) Subscribe(topicName string, s MessageSubscriber) {
 		t.topics[topicName] = topic
 	}
 
-	topic.Subscribe(s)
+	return topic.Subscribe(s)
 }
 
 func (t *Topics) Unsubscribe(topicName string, s MessageSubscriber) {
