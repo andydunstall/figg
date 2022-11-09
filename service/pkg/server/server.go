@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/andydunstall/figg/service/pkg/conn"
@@ -86,7 +87,17 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		case conn.TypePing:
 			c.Send(conn.NewPongMessage(m.Ping.Timestamp))
 		case conn.TypeAttach:
-			subscriptions.AddSubscription(m.Attach.Topic)
+			if m.Attach.Offset != "" {
+				offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
+				if err != nil {
+					// If the offset is invalid subscribe without.
+					subscriptions.AddSubscription(m.Attach.Topic)
+				} else {
+					subscriptions.AddSubscriptionFromOffset(m.Attach.Topic, offset)
+				}
+			} else {
+				subscriptions.AddSubscription(m.Attach.Topic)
+			}
 			c.Send(conn.NewAttachedMessage())
 		case conn.TypePublish:
 			topic := s.broker.GetTopic(m.Publish.Topic)

@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -8,7 +9,7 @@ import (
 type TopicMessage struct {
 	Topic   string
 	Message []byte
-	Offset  uint64
+	Offset  string
 }
 
 // Subscription reads messages from the topic and sends to the connection.
@@ -87,7 +88,7 @@ func (s *Subscription) sendLoop() {
 			s.messageCh <- TopicMessage{
 				Topic:   s.topic.Name(),
 				Message: m,
-				Offset:  offset,
+				Offset:  strconv.FormatUint(offset, 10),
 			}
 			s.lastOffset = offset
 		}

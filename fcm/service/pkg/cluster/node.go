@@ -13,9 +13,10 @@ import (
 )
 
 type Node struct {
-	ID    string
-	Addr  string
-	proxy *toxiproxy.Proxy
+	ID        string
+	Addr      string
+	ProxyAddr string
+	proxy     *toxiproxy.Proxy
 
 	logger *zap.Logger
 
@@ -50,11 +51,12 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, lo
 	}()
 
 	return &Node{
-		ID:     id,
-		Addr:   proxyAddr,
-		proxy:  proxy,
-		logger: logger,
-		doneCh: doneCh,
+		ID:        id,
+		Addr:      listenAddr,
+		ProxyAddr: proxyAddr,
+		proxy:     proxy,
+		logger:    logger,
+		doneCh:    doneCh,
 	}, nil
 }
 

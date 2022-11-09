@@ -126,7 +126,7 @@ func (w *Figg) eventLoop() {
 func (w *Figg) onMessage(m *ProtocolMessage) {
 	w.logger.Debug(
 		"on message",
-		zap.String("type", TypeToString(m.Type)),
+		zap.Object("message", m),
 	)
 
 	switch m.Type {
@@ -135,7 +135,7 @@ func (w *Figg) onMessage(m *ProtocolMessage) {
 		w.pendingMessages.Acknowledge(m.ACK.SeqNum)
 	case TypePayload:
 		w.logger.Debug("on payload", zap.String("topic", m.Payload.Topic))
-		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message)
+		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message, m.Payload.Offset)
 	}
 }
 
@@ -155,7 +155,7 @@ func (w *Figg) onConnected() {
 	// Reattach all subscribed topics.
 	for _, topic := range w.topics.Topics() {
 		w.logger.Debug("reattaching", zap.String("topic", topic))
-		w.transport.Send(NewAttachMessage(topic))
+		w.transport.Send(NewAttachMessageWithOffset(topic, w.topics.Offset(topic)))
 	}
 
 	// Send all unacknowledged messages.

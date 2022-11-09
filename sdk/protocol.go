@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"go.uber.org/zap/zapcore"
 )
 
 type MessageType uint16
@@ -19,7 +20,8 @@ const (
 )
 
 type AttachMessage struct {
-	Topic string
+	Topic  string
+	Offset string
 }
 
 func NewAttachMessage(topic string) *ProtocolMessage {
@@ -31,7 +33,27 @@ func NewAttachMessage(topic string) *ProtocolMessage {
 	}
 }
 
+func NewAttachMessageWithOffset(topic string, offset string) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypeAttach,
+		Attach: &AttachMessage{
+			Topic:  topic,
+			Offset: offset,
+		},
+	}
+}
+
+func (m AttachMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("topic", m.Topic)
+	enc.AddString("offset", m.Offset)
+	return nil
+}
+
 type AttachedMessage struct{}
+
+func (m AttachedMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	return nil
+}
 
 type PublishMessage struct {
 	Topic   string
@@ -50,14 +72,33 @@ func NewPublishMessage(topic string, seqNum uint64, payload []byte) *ProtocolMes
 	}
 }
 
+func (m PublishMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("topic", m.Topic)
+	enc.AddUint64("seq-num", m.SeqNum)
+	enc.AddInt("length", len(m.Payload))
+	return nil
+}
+
 type ACKMessage struct {
 	SeqNum uint64
 }
 
+func (m ACKMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddUint64("seq-num", m.SeqNum)
+	return nil
+}
+
 type PayloadMessage struct {
 	Topic   string
-	Offset  uint64
+	Offset  string
 	Message []byte
+}
+
+func (m PayloadMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("topic", m.Topic)
+	enc.AddString("offset", m.Offset)
+	enc.AddInt("length", len(m.Message))
+	return nil
 }
 
 type PingMessage struct {
@@ -74,6 +115,11 @@ func NewPingMessage(timestamp int64) *ProtocolMessage {
 	}
 }
 
+func (m PingMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt64("timestamp", m.Timestamp)
+	return nil
+}
+
 type PongMessage struct {
 	// Timestamp echos back the timestamp from the corresponding ping message.
 	Timestamp int64
@@ -86,6 +132,11 @@ func NewPongMessage(timestamp int64) *ProtocolMessage {
 			Timestamp: timestamp,
 		},
 	}
+}
+
+func (m PongMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt64("timestamp", m.Timestamp)
+	return nil
 }
 
 type ProtocolMessage struct {
@@ -101,6 +152,29 @@ type ProtocolMessage struct {
 
 func (m *ProtocolMessage) Encode() ([]byte, error) {
 	return msgpack.Marshal(m)
+}
+
+func (m *ProtocolMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("type", TypeToString(m.Type))
+
+	switch m.Type {
+	case TypeAttach:
+		enc.AddObject("attach", m.Attach)
+	case TypeAttached:
+		enc.AddObject("attached", m.Attached)
+	case TypePublish:
+		enc.AddObject("publish", m.Publish)
+	case TypeACK:
+		enc.AddObject("ack", m.ACK)
+	case TypePayload:
+		enc.AddObject("payload", m.Payload)
+	case TypePing:
+		enc.AddObject("ping", m.Ping)
+	case TypePong:
+		enc.AddObject("pong", m.Pong)
+	}
+
+	return nil
 }
 
 func ProtocolMessageFromBytes(b []byte) (*ProtocolMessage, error) {

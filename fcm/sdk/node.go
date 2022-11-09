@@ -10,6 +10,7 @@ import (
 type Node struct {
 	ID        string `json:"id,omitempty"`
 	Addr      string `json:"addr,omitempty"`
+	ProxyAddr string `json:"proxy_addr,omitempty"`
 	ClusterID string
 	client    *Client
 }

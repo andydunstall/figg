@@ -18,8 +18,9 @@ type clusterInfo struct {
 }
 
 type nodeInfo struct {
-	ID   string `json:"id,omitempty"`
-	Addr string `json:"addr,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Addr      string `json:"addr,omitempty"`
+	ProxyAddr string `json:"proxy_addr,omitempty"`
 }
 
 type scenarioInfo struct {
@@ -114,8 +115,9 @@ func (s *Server) addNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := nodeInfo{
-		ID:   node.ID,
-		Addr: node.Addr,
+		ID:        node.ID,
+		Addr:      node.Addr,
+		ProxyAddr: node.ProxyAddr,
 	}
 	if err := json.NewEncoder(w).Encode(&resp); err != nil {
 		s.logger.Error("failed to encode response", zap.Error(err))

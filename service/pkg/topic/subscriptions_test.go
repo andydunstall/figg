@@ -49,7 +49,7 @@ func TestSubscriptions_SubscribeToTopic(t *testing.T) {
 
 	assert.Equal(t, TopicMessage{
 		Topic:   "foo",
-		Offset:  1,
+		Offset:  "1",
 		Message: []byte("bar"),
 	}, <-subs.MessageCh())
 }

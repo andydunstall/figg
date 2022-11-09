@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andydunstall/figg/sdk"
 	"github.com/andydunstall/figg/fcm/sdk"
+	"github.com/andydunstall/figg/sdk"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -31,7 +31,7 @@ func TestConnection_Connect(t *testing.T) {
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.Addr,
+		Addr:            node.ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -63,7 +63,7 @@ func TestConnection_ConnectOnceReachable(t *testing.T) {
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.Addr,
+		Addr:            node.ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -88,7 +88,7 @@ func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.Addr,
+		Addr:            node.ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})

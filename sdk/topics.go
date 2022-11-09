@@ -25,7 +25,19 @@ func (t *Topics) Topics() []string {
 	return topics
 }
 
-func (t *Topics) OnMessage(topicName string, m []byte) {
+func (t *Topics) Offset(topicName string) string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	topic, ok := t.topics[topicName]
+	if !ok {
+		return ""
+	}
+
+	return topic.Offset()
+}
+
+func (t *Topics) OnMessage(topicName string, m []byte, offset string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -34,7 +46,7 @@ func (t *Topics) OnMessage(topicName string, m []byte) {
 		return
 	}
 
-	topic.OnMessage(m)
+	topic.OnMessage(m, offset)
 }
 
 // Subscribes to the given topic. Returns true if this is the first subscriber

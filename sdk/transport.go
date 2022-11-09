@@ -53,7 +53,7 @@ func (t *Transport) Send(m *ProtocolMessage) error {
 
 	t.logger.Debug(
 		"send message",
-		zap.String("type", TypeToString(m.Type)),
+		zap.Object("message", m),
 	)
 
 	return t.conn.Send(m)

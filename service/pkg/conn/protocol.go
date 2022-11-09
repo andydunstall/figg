@@ -19,7 +19,8 @@ const (
 )
 
 type AttachMessage struct {
-	Topic string
+	Topic  string
+	Offset string
 }
 
 type AttachedMessage struct{}
@@ -52,11 +53,11 @@ func NewACKMessage(seqNum uint64) *ProtocolMessage {
 
 type PayloadMessage struct {
 	Topic   string
-	Offset  uint64
+	Offset  string
 	Message []byte
 }
 
-func NewPayloadMessage(topic string, offset uint64, m []byte) *ProtocolMessage {
+func NewPayloadMessage(topic string, offset string, m []byte) *ProtocolMessage {
 	return &ProtocolMessage{
 		Type: TypePayload,
 		Payload: &PayloadMessage{
