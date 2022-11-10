@@ -19,7 +19,7 @@ func (c *CLI) addCommands() {
 
 	figgCommand.AddCommand(NewPublishCommand(figgCommand.Config))
 	figgCommand.AddCommand(NewSubscribeCommand(figgCommand.Config))
+	figgCommand.AddCommand(NewBenchCommand(figgCommand.Config))
 
 	c.command = figgCommand
-
 }
