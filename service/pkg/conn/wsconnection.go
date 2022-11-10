@@ -4,17 +4,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type WSTransport struct {
+type WSConnection struct {
 	ws *websocket.Conn
 }
 
-func NewWSTransport(ws *websocket.Conn) Transport {
-	return &WSTransport{
+func NewWSConnection(ws *websocket.Conn) Connection {
+	return &WSConnection{
 		ws: ws,
 	}
 }
 
-func (t *WSTransport) Send(m *ProtocolMessage) error {
+func (t *WSConnection) Send(m *ProtocolMessage) error {
 	b, err := m.Encode()
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (t *WSTransport) Send(m *ProtocolMessage) error {
 	return t.ws.WriteMessage(websocket.BinaryMessage, b)
 }
 
-func (t *WSTransport) Recv() (*ProtocolMessage, error) {
+func (t *WSConnection) Recv() (*ProtocolMessage, error) {
 	_, b, err := t.ws.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -35,6 +35,6 @@ func (t *WSTransport) Recv() (*ProtocolMessage, error) {
 	return m, nil
 }
 
-func (t *WSTransport) Close() error {
+func (t *WSConnection) Close() error {
 	return t.ws.Close()
 }

@@ -49,7 +49,6 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		s.logger.Debug("failed to upgrade connection", zap.Error(err))
 		return
 	}
-	defer ws.Close()
 
 	addr := ws.RemoteAddr().String()
 	s.logger.Debug(
@@ -57,7 +56,7 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		zap.String("addr", addr),
 	)
 
-	transport := conn.NewWSTransport(ws)
+	transport := conn.NewWSConnection(ws)
 	defer transport.Close()
 
 	subscriptions := topic.NewSubscriptions(s.broker)
