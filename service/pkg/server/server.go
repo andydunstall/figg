@@ -58,8 +58,7 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	)
 
 	transport := conn.NewWSTransport(ws)
-	c := conn.NewProtocolConnection(transport)
-	defer c.Close()
+	defer transport.Close()
 
 	subscriptions := topic.NewSubscriptions(s.broker)
 	defer subscriptions.Shutdown()
@@ -70,7 +69,7 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
 			case m := <-subscriptions.MessageCh():
-				c.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+				transport.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
 			case <-doneCh:
 				return
 			}
@@ -78,14 +77,14 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
-		m, err := c.Recv()
+		m, err := transport.Recv()
 		if err != nil {
 			s.logger.Debug("failed to read from connection", zap.Error(err))
 			break
 		}
 		switch m.Type {
 		case conn.TypePing:
-			c.Send(conn.NewPongMessage(m.Ping.Timestamp))
+			transport.Send(conn.NewPongMessage(m.Ping.Timestamp))
 		case conn.TypeAttach:
 			if m.Attach.Offset != "" {
 				offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
@@ -98,11 +97,11 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 			} else {
 				subscriptions.AddSubscription(m.Attach.Topic)
 			}
-			c.Send(conn.NewAttachedMessage())
+			transport.Send(conn.NewAttachedMessage())
 		case conn.TypePublish:
 			topic := s.broker.GetTopic(m.Publish.Topic)
 			topic.Publish(m.Publish.Payload)
-			c.Send(conn.NewACKMessage(m.Publish.SeqNum))
+			transport.Send(conn.NewACKMessage(m.Publish.SeqNum))
 		}
 	}
 
