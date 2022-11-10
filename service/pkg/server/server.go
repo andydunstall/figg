@@ -56,55 +56,44 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		zap.String("addr", addr),
 	)
 
-	transport := conn.NewWSConnection(ws)
-	defer transport.Close()
+	transport := conn.NewTransport(conn.NewWSConnection(ws))
+	defer transport.Shutdown()
 
 	subscriptions := topic.NewSubscriptions(s.broker)
 	defer subscriptions.Shutdown()
 
-	doneCh := make(chan interface{})
-
-	go func() {
-		for {
-			select {
-			case m := <-subscriptions.MessageCh():
-				transport.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
-			case <-doneCh:
-				return
-			}
-		}
-	}()
-
 	for {
-		m, err := transport.Recv()
-		if err != nil {
-			s.logger.Debug("failed to read from connection", zap.Error(err))
-			break
-		}
-		switch m.Type {
-		case conn.TypePing:
-			transport.Send(conn.NewPongMessage(m.Ping.Timestamp))
-		case conn.TypeAttach:
-			if m.Attach.Offset != "" {
-				offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
-				if err != nil {
-					// If the offset is invalid subscribe without.
-					subscriptions.AddSubscription(m.Attach.Topic)
-				} else {
-					subscriptions.AddSubscriptionFromOffset(m.Attach.Topic, offset)
-				}
-			} else {
-				subscriptions.AddSubscription(m.Attach.Topic)
+		select {
+		case m := <-transport.MessageCh():
+			if m == nil {
+				break
 			}
-			transport.Send(conn.NewAttachedMessage())
-		case conn.TypePublish:
-			topic := s.broker.GetTopic(m.Publish.Topic)
-			topic.Publish(m.Publish.Payload)
-			transport.Send(conn.NewACKMessage(m.Publish.SeqNum))
+
+			switch m.Type {
+			case conn.TypePing:
+				transport.Send(conn.NewPongMessage(m.Ping.Timestamp))
+			case conn.TypeAttach:
+				if m.Attach.Offset != "" {
+					offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
+					if err != nil {
+						// If the offset is invalid subscribe without.
+						subscriptions.AddSubscription(m.Attach.Topic)
+					} else {
+						subscriptions.AddSubscriptionFromOffset(m.Attach.Topic, offset)
+					}
+				} else {
+					subscriptions.AddSubscription(m.Attach.Topic)
+				}
+				transport.Send(conn.NewAttachedMessage())
+			case conn.TypePublish:
+				topic := s.broker.GetTopic(m.Publish.Topic)
+				topic.Publish(m.Publish.Payload)
+				transport.Send(conn.NewACKMessage(m.Publish.SeqNum))
+			}
+		case m := <-subscriptions.MessageCh():
+			transport.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
 		}
 	}
-
-	close(doneCh)
 }
 
 func (s *Server) Serve(lis net.Listener) error {

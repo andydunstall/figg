@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -69,7 +70,7 @@ func (c *BenchCommand) run() error {
 		received := 0
 		for {
 			select {
-			case m := <-sub.Ch():
+			case <-sub.Ch():
 				received += 1
 				if received == count {
 					return
