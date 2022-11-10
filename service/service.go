@@ -22,7 +22,7 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 }
 
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
-	logger.Info("starting figg")
+	logger.Info("starting figg", zap.String("addr", config.Addr))
 
 	server := server.NewServer(logger)
 

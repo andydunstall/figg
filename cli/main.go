@@ -1,9 +1,16 @@
 package main
 
 import (
-	"github.com/andydunstall/figg/cli/cmd"
+	"fmt"
+	"os"
+
+	"github.com/andydunstall/figg/cli/cli"
 )
 
 func main() {
-	cmd.Execute()
+	cli := cli.NewCLI()
+	if err := cli.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

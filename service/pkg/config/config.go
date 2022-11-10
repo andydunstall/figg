@@ -5,7 +5,7 @@ import (
 )
 
 type Config struct {
-	Addr string `short:"a" long:"addr" description:"Listen address for pub/sub clients" default:"127.0.0.1:8000"`
+	Addr string `short:"a" long:"addr" description:"Listen address for pub/sub clients" default:"127.0.0.1:8119"`
 
 	Verbose bool `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
