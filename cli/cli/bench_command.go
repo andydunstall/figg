@@ -51,16 +51,19 @@ func (c *BenchCommand) run() error {
 		return err
 	}
 
+	<-time.After(time.Second)
+
 	// Wait to become connected and attached.
 	// TODO(AD) this should be an event (maybe Subscribe should block until
 	// received ATTACHED)
 	sub := figg.NewChannelMessageSubscriber()
 	subscriber.Subscribe("bench-topic", sub)
+
 	<-time.After(time.Second)
 
 	start := time.Now()
 
-	count := 100000
+	count := 10000
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)

@@ -15,6 +15,7 @@ type Figg struct {
 	stateSubscriber StateSubscriber
 	topics          *Topics
 
+	outgoingMessages chan *ProtocolMessage
 	// pendingMessages contains protocol messages that must be acknowledged.
 	// On a reconnect all pending messages are retried.
 	pendingMessages *MessageQueue
@@ -48,14 +49,14 @@ func (w *Figg) Publish(topic string, m []byte) {
 	w.pendingMessages.Push(message, seqNum)
 
 	// Ignore errors. If we fail to send we'll retry on reconnect.
-	w.transport.Send(message)
+	w.outgoingMessages <- message
 }
 
 func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
 	if w.topics.Subscribe(topic, sub) {
 		// Note if we arn't connected this won't send an attach, but once
 		// we become suspended we attach to all subscribed channels.
-		w.transport.Send(NewAttachMessage(topic))
+		w.outgoingMessages <- NewAttachMessage(topic)
 	}
 }
 
@@ -88,14 +89,15 @@ func newFigg(config *Config) (*Figg, error) {
 	}
 
 	return &Figg{
-		transport:       NewTransport(config.Addr, logger),
-		pingInterval:    pingInterval,
-		stateSubscriber: config.StateSubscriber,
-		topics:          NewTopics(),
-		pendingMessages: NewMessageQueue(),
-		doneCh:          make(chan interface{}),
-		wg:              sync.WaitGroup{},
-		logger:          logger,
+		transport:        NewTransport(config.Addr, logger),
+		pingInterval:     pingInterval,
+		stateSubscriber:  config.StateSubscriber,
+		topics:           NewTopics(),
+		outgoingMessages: make(chan *ProtocolMessage),
+		pendingMessages:  NewMessageQueue(),
+		doneCh:           make(chan interface{}),
+		wg:               sync.WaitGroup{},
+		logger:           logger,
 	}, nil
 }
 
@@ -107,6 +109,8 @@ func (w *Figg) eventLoop() {
 
 	for {
 		select {
+		case m := <-w.outgoingMessages:
+			w.transport.Send(m)
 		case m := <-w.transport.MessageCh():
 			w.onMessage(m)
 		case state := <-w.transport.StateCh():
@@ -155,12 +159,12 @@ func (w *Figg) onConnected() {
 	// Reattach all subscribed topics.
 	for _, topic := range w.topics.Topics() {
 		w.logger.Debug("reattaching", zap.String("topic", topic))
-		w.transport.Send(NewAttachMessageWithOffset(topic, w.topics.Offset(topic)))
+		w.outgoingMessages <- NewAttachMessageWithOffset(topic, w.topics.Offset(topic))
 	}
 
 	// Send all unacknowledged messages.
 	for _, m := range w.pendingMessages.Messages() {
-		w.transport.Send(m)
+		w.outgoingMessages <- m
 	}
 }
 
@@ -169,5 +173,5 @@ func (w *Figg) ping() {
 	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
 	m := NewPingMessage(timestamp.UnixMilli())
 	// Ignore any errors. If we're not connected we can't send a ping.
-	w.transport.Send(m)
+	w.outgoingMessages <- m
 }
