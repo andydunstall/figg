@@ -1,7 +1,8 @@
 # Figg
-Figg is a lightweight pub/sub messaging service.
+Figg is a simple pub/sub messaging service. It only runs on a single node so
+theres no fault tolerance or horizonal scaling.
 
-*This is a work in progress projects I'm building for fun, not intended to be used for production workloads.*
+*This is a work in progress project I'm just building for fun, not really intended to be used in production.*
 
 ## Components
 * [`service/`](./service): Backend Figg service,
