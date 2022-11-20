@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 
 	"github.com/andydunstall/figg/service"
 	"github.com/andydunstall/figg/service/pkg/config"
@@ -33,10 +34,21 @@ func main() {
 	}
 	defer logger.Sync()
 
-	doneCh := make(chan interface{})
-	service.Run(config, logger, doneCh)
+	if config.CPUProfile != "" {
+		f, err := os.Create(config.CPUProfile)
+		if err != nil {
+			logger.Error("failed to start cpu profile", zap.Error(err))
+		}
+		logger.Info("starting cpu profile", zap.String("output", config.CPUProfile))
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
-	// TODO(AD) this isn't doing anything yet as Run blocks
+	doneCh := make(chan interface{})
+	go func() {
+		service.Run(config, logger, doneCh)
+	}()
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	// Block until we receive our signal.
