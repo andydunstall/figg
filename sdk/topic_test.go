@@ -1,13 +1,38 @@
 package figg
 
 import (
+	"container/list"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+type messageQueue struct {
+	messages *list.List
+}
+
+func newMessageQueue() *messageQueue {
+	return &messageQueue{
+		messages: list.New(),
+	}
+}
+
+func (q *messageQueue) Next() ([]byte, bool) {
+	if q.messages.Len() == 0 {
+		return nil, false
+	}
+
+	m := q.messages.Front()
+	q.messages.Remove(m)
+	return m.Value.([]byte), true
+}
+
+func (q *messageQueue) Push(m []byte) {
+	q.messages.PushBack(m)
+}
+
 func TestTopic_UpdateOffset(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("mytopic")
 
 	topic.OnMessage([]byte("foo"), "1")
 	assert.Equal(t, "1", topic.Offset())
@@ -18,52 +43,61 @@ func TestTopic_UpdateOffset(t *testing.T) {
 }
 
 func TestTopic_SubscribeToMessage(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("mytopic")
 
-	sub := NewQueueMessageSubscriber()
-	topic.Subscribe(sub)
+	q := newMessageQueue()
+	topic.Subscribe(func(topicName string, m []byte) {
+		q.Push(m)
+	})
 
 	topic.OnMessage([]byte("foo"), "1")
 	topic.OnMessage([]byte("bar"), "2")
 
-	b, ok := sub.Next()
+	b, ok := q.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("foo"), b)
-	b, ok = sub.Next()
+	b, ok = q.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("bar"), b)
-	b, ok = sub.Next()
+	b, ok = q.Next()
 	assert.False(t, ok)
 }
 
 func TestTopic_Unsubscribe(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("mytopic")
 
-	sub := NewQueueMessageSubscriber()
-	topic.Subscribe(sub)
+	q := newMessageQueue()
+	sub, _ := topic.Subscribe(func(topicName string, m []byte) {
+		q.Push(m)
+	})
 	topic.Unsubscribe(sub)
 
 	topic.OnMessage([]byte("foo"), "1")
 	topic.OnMessage([]byte("bar"), "2")
 
-	_, ok := sub.Next()
+	_, ok := q.Next()
 	assert.False(t, ok)
 }
 
 func TestTopic_MultipleSubscribers(t *testing.T) {
-	topic := NewTopic()
+	topic := NewTopic("mytopic")
 
-	sub1 := NewQueueMessageSubscriber()
-	assert.True(t, topic.Subscribe(sub1))
-	sub2 := NewQueueMessageSubscriber()
-	assert.False(t, topic.Subscribe(sub2))
+	q1 := newMessageQueue()
+	_, activated := topic.Subscribe(func(topicName string, m []byte) {
+		q1.Push(m)
+	})
+	assert.True(t, activated)
+	q2 := newMessageQueue()
+	_, activated = topic.Subscribe(func(topicName string, m []byte) {
+		q2.Push(m)
+	})
 
 	topic.OnMessage([]byte("foo"), "1")
 
-	b, ok := sub1.Next()
+	b, ok := q1.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("foo"), b)
-	b, ok = sub2.Next()
+	b, ok = q2.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("foo"), b)
 }

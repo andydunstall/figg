@@ -4,15 +4,25 @@ import (
 	"sync"
 )
 
+// MessageHandler is a callback function that processes messages delivered to
+// subscribers.
+type MessageHandler func(topic string, m []byte)
+
+type MessageSubscriber struct {
+	CB MessageHandler
+}
+
 type Topic struct {
-	subscribers map[MessageSubscriber]interface{}
+	name        string
+	subscribers map[*MessageSubscriber]interface{}
 	offset      string
 	mu          sync.Mutex
 }
 
-func NewTopic() *Topic {
+func NewTopic(name string) *Topic {
 	return &Topic{
-		subscribers: make(map[MessageSubscriber]interface{}),
+		name:        name,
+		subscribers: make(map[*MessageSubscriber]interface{}),
 		offset:      "",
 		mu:          sync.Mutex{},
 	}
@@ -25,7 +35,7 @@ func (t *Topic) OnMessage(m []byte, offset string) {
 	t.offset = offset
 
 	for sub, _ := range t.subscribers {
-		sub.NotifyMessage(m)
+		sub.CB(t.name, m)
 	}
 }
 
@@ -38,18 +48,22 @@ func (t *Topic) Offset() string {
 
 // Subscribes to the topic. Returns true if this is the first subscriber, false
 // otherwise.
-func (t *Topic) Subscribe(s MessageSubscriber) bool {
+func (t *Topic) Subscribe(cb MessageHandler) (*MessageSubscriber, bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	sub := &MessageSubscriber{
+		CB: cb,
+	}
 
 	activated := len(t.subscribers) == 0
-	t.subscribers[s] = struct{}{}
-	return activated
+	t.subscribers[sub] = struct{}{}
+	return sub, activated
 }
 
-func (t *Topic) Unsubscribe(s MessageSubscriber) {
+func (t *Topic) Unsubscribe(sub *MessageSubscriber) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	delete(t.subscribers, s)
+	delete(t.subscribers, sub)
 }

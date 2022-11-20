@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	figg "github.com/andydunstall/figg/sdk"
@@ -56,37 +55,27 @@ func (c *BenchCommand) run() error {
 	// Wait to become connected and attached.
 	// TODO(AD) this should be an event (maybe Subscribe should block until
 	// received ATTACHED)
-	sub := figg.NewChannelMessageSubscriber()
-	subscriber.Subscribe("bench-topic", sub)
+
+	doneCh := make(chan interface{})
+
+	count := 10000
+	received := 0
+	subscriber.Subscribe("bench-topic", func(topic string, m []byte) {
+		received++
+		if received == count {
+			close(doneCh)
+		}
+	})
 
 	<-time.After(time.Second)
 
 	start := time.Now()
 
-	count := 10000
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		received := 0
-		for {
-			select {
-			case <-sub.Ch():
-				received += 1
-				if received == count {
-					return
-				}
-			}
-		}
-	}()
-
 	for i := 0; i != count; i++ {
 		publisher.Publish("bench-topic", []byte(fmt.Sprintf("message-%d", i)))
 	}
 
-	wg.Wait()
+	<-doneCh
 
 	elapsed := time.Since(start)
 	fmt.Println("elapsed", elapsed, "count", count)

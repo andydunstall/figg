@@ -52,15 +52,17 @@ func (w *Figg) Publish(topic string, m []byte) {
 	w.outgoingMessages <- message
 }
 
-func (w *Figg) Subscribe(topic string, sub MessageSubscriber) {
-	if w.topics.Subscribe(topic, sub) {
+func (w *Figg) Subscribe(topic string, cb MessageHandler) *MessageSubscriber {
+	sub, activated := w.topics.Subscribe(topic, cb)
+	if activated {
 		// Note if we arn't connected this won't send an attach, but once
 		// we become suspended we attach to all subscribed channels.
 		w.outgoingMessages <- NewAttachMessage(topic)
 	}
+	return sub
 }
 
-func (w *Figg) Unsubscribe(topic string, sub MessageSubscriber) {
+func (w *Figg) Unsubscribe(topic string, sub *MessageSubscriber) {
 	w.topics.Unsubscribe(topic, sub)
 }
 

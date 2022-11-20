@@ -23,13 +23,12 @@ if err := client.Publish("foo", []byte("bar")); err != nil {
 ```
 
 ### Subscribe
-Subscribes to topic `foo`. The subscriber is of type `MessageSubscriber`, which
-it an interface with a member `NotifyMessage(m []byte)` which the user can
-implement. An implementation exists for writing all messages to a channel,
-`ChannelStateSubscriber` used here.
+Subscribes to topic `foo`.
 
 ```go
-sub := NewChannelMessageSubscriber()
-client.Subscribe("foo", sub)
-m := <-sub
+sub := client.Subscribe("foo", func(topic string, m []byte) {
+  fmt.Println("received message", string(m))
+})
+
+client.Unsubscribe("foo", sub)
 ```

@@ -10,10 +10,9 @@ import (
 func TestTopics_UpdateOffset(t *testing.T) {
 	topics := NewTopics()
 
-	sub := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub))
-	assert.True(t, topics.Subscribe("topic2", sub))
-	assert.True(t, topics.Subscribe("topic3", sub))
+	topics.Subscribe("topic1", func(topicName string, m []byte) {})
+	topics.Subscribe("topic2", func(topicName string, m []byte) {})
+	topics.Subscribe("topic3", func(topicName string, m []byte) {})
 
 	topics.OnMessage("topic1", []byte("foo"), "1")
 	topics.OnMessage("topic1", []byte("bar"), "2")
@@ -29,86 +28,45 @@ func TestTopics_UpdateOffset(t *testing.T) {
 func TestTopics_SubscribeToMessage(t *testing.T) {
 	topics := NewTopics()
 
-	sub := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub))
+	q := newMessageQueue()
+	topics.Subscribe("topic1", func(topicName string, m []byte) {
+		q.Push(m)
+	})
 
 	topics.OnMessage("topic1", []byte("foo"), "1")
 	topics.OnMessage("topic1", []byte("bar"), "2")
 
-	b, ok := sub.Next()
+	b, ok := q.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("foo"), b)
-	b, ok = sub.Next()
+	b, ok = q.Next()
 	assert.True(t, ok)
 	assert.Equal(t, []byte("bar"), b)
-	b, ok = sub.Next()
+	b, ok = q.Next()
 	assert.False(t, ok)
 }
 
 func TestTopics_Unsubscribe(t *testing.T) {
 	topics := NewTopics()
 
-	sub := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub))
+	q := newMessageQueue()
+	sub, _ := topics.Subscribe("topic1", func(topicName string, m []byte) {
+		q.Push(m)
+	})
 	topics.Unsubscribe("topic1", sub)
 
 	topics.OnMessage("topic1", []byte("foo"), "1")
 	topics.OnMessage("topic1", []byte("bar"), "2")
 
-	_, ok := sub.Next()
+	_, ok := q.Next()
 	assert.False(t, ok)
-}
-
-func TestTopics_SubscribeMultipleTopics(t *testing.T) {
-	topics := NewTopics()
-
-	sub := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub))
-	assert.True(t, topics.Subscribe("topic2", sub))
-	assert.True(t, topics.Subscribe("topic3", sub))
-
-	topics.OnMessage("topic1", []byte("foo"), "1")
-	topics.OnMessage("topic2", []byte("bar"), "1")
-	topics.OnMessage("topic3", []byte("car"), "1")
-
-	b, ok := sub.Next()
-	assert.True(t, ok)
-	assert.Equal(t, []byte("foo"), b)
-	b, ok = sub.Next()
-	assert.True(t, ok)
-	assert.Equal(t, []byte("bar"), b)
-	b, ok = sub.Next()
-	assert.True(t, ok)
-	assert.Equal(t, []byte("car"), b)
-	b, ok = sub.Next()
-	assert.False(t, ok)
-}
-
-func TestTopics_SubscribeTopicWithMultipleSubscriptions(t *testing.T) {
-	topics := NewTopics()
-
-	sub1 := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub1))
-	sub2 := NewQueueMessageSubscriber()
-	assert.False(t, topics.Subscribe("topic1", sub2))
-
-	topics.OnMessage("topic1", []byte("foo"), "1")
-
-	b, ok := sub1.Next()
-	assert.True(t, ok)
-	assert.Equal(t, []byte("foo"), b)
-	b, ok = sub2.Next()
-	assert.True(t, ok)
-	assert.Equal(t, []byte("foo"), b)
 }
 
 func TestTopics_ListSubscribedTopics(t *testing.T) {
 	topics := NewTopics()
 
-	sub1 := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic1", sub1))
-	sub2 := NewQueueMessageSubscriber()
-	assert.True(t, topics.Subscribe("topic2", sub2))
+	topics.Subscribe("topic1", func(topicName string, m []byte) {})
+	topics.Subscribe("topic2", func(topicName string, m []byte) {})
 
 	names := topics.Topics()
 	sort.Strings(names)

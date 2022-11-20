@@ -43,14 +43,8 @@ func (c *SubscribeCommand) run(topic string) error {
 	if err != nil {
 		return err
 	}
-	sub := figg.NewChannelMessageSubscriber()
-	client.Subscribe(topic, sub)
-
-	for {
-		select {
-		case m := <-sub.Ch():
-			fmt.Println("<-", string(m))
-		}
-	}
+	client.Subscribe(topic, func(topic string, m []byte) {
+		fmt.Println("<-", string(m))
+	})
 	return nil
 }
