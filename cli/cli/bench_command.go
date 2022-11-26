@@ -9,9 +9,10 @@ import (
 )
 
 type BenchCommand struct {
-	Config   *FiggConfig
-	cobraCmd *cobra.Command
-	samples  int
+	Config    *FiggConfig
+	cobraCmd  *cobra.Command
+	samples   int
+	publishes int
 }
 
 func NewBenchCommand(config *FiggConfig) *BenchCommand {
@@ -25,6 +26,7 @@ func NewBenchCommand(config *FiggConfig) *BenchCommand {
 		},
 	}
 	cobraCmd.PersistentFlags().IntVar(&command.samples, "samples", 1, "number of bench samples")
+	cobraCmd.PersistentFlags().IntVar(&command.publishes, "publishes", 10000, "number of publishes")
 	command.cobraCmd = cobraCmd
 	return command
 }
@@ -61,7 +63,7 @@ func (c *BenchCommand) run() error {
 
 		doneCh := make(chan interface{})
 
-		count := 10000
+		count := c.publishes
 		received := 0
 		subscriber.Subscribe("bench-topic", func(topic string, m []byte) {
 			received++
