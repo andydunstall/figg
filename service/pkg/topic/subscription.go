@@ -6,6 +6,10 @@ import (
 	"sync/atomic"
 )
 
+type Attachment interface {
+	Send(m TopicMessage)
+}
+
 type TopicMessage struct {
 	Topic   string
 	Message []byte
@@ -18,7 +22,7 @@ type Subscription struct {
 	// lastOffset is the offset of the last processed message in the topic.
 	lastOffset uint64
 
-	messageCh chan<- TopicMessage
+	attachment Attachment
 
 	cv       *sync.Cond
 	mu       *sync.Mutex
@@ -27,21 +31,21 @@ type Subscription struct {
 
 // NewSubscription creates a subscription to the given topic starting from the
 // next message in the topic.
-func NewSubscription(messageCh chan<- TopicMessage, topic *Topic) *Subscription {
+func NewSubscription(attachment Attachment, topic *Topic) *Subscription {
 	// Use the offset of the last message in the topic.
-	return NewSubscriptionFromOffset(messageCh, topic, topic.Offset())
+	return NewSubscriptionFromOffset(attachment, topic, topic.Offset())
 }
 
 // NewSubscriptionFromOffset creates a subscription to the given topic, starting
 // at the next message after the given offset. If the offset is less than the
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
-func NewSubscriptionFromOffset(messageCh chan<- TopicMessage, topic *Topic, lastOffset uint64) *Subscription {
+func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, lastOffset uint64) *Subscription {
 	mu := &sync.Mutex{}
 	s := &Subscription{
 		topic:      topic,
 		lastOffset: lastOffset,
-		messageCh:  messageCh,
+		attachment: attachment,
 		cv:         sync.NewCond(mu),
 		mu:         mu,
 	}
@@ -85,11 +89,11 @@ func (s *Subscription) sendLoop() {
 				break
 			}
 
-			s.messageCh <- TopicMessage{
+			s.attachment.Send(TopicMessage{
 				Topic:   s.topic.Name(),
 				Message: m,
 				Offset:  strconv.FormatUint(offset, 10),
-			}
+			})
 			s.lastOffset = offset
 		}
 

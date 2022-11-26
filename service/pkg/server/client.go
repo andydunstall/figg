@@ -8,6 +8,20 @@ import (
 	"github.com/andydunstall/figg/service/pkg/topic"
 )
 
+type ClientAttachment struct {
+	client *Client
+}
+
+func NewClientAttachment(client *Client) topic.Attachment {
+	return &ClientAttachment{
+		client: client,
+	}
+}
+
+func (a *ClientAttachment) Send(m topic.TopicMessage) {
+	a.client.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+}
+
 type Client struct {
 	conn          conn.Connection
 	broker        *topic.Broker
@@ -20,15 +34,14 @@ type Client struct {
 func NewClient(conn conn.Connection, broker *topic.Broker) *Client {
 	mu := &sync.Mutex{}
 	c := &Client{
-		conn:          conn,
-		broker:        broker,
-		subscriptions: topic.NewSubscriptions(broker),
-		outgoing:      [][]byte{},
-		mu:            mu,
-		cv:            sync.NewCond(mu),
+		conn:     conn,
+		broker:   broker,
+		outgoing: [][]byte{},
+		mu:       mu,
+		cv:       sync.NewCond(mu),
 	}
+	c.subscriptions = topic.NewSubscriptions(broker, NewClientAttachment(c))
 	go c.writeLoop()
-	go c.subscribeLoop()
 	return c
 }
 
@@ -87,15 +100,6 @@ func (c *Client) writeLoop() {
 				// connection will close.
 				return
 			}
-		}
-	}
-}
-
-func (c *Client) subscribeLoop() {
-	for {
-		select {
-		case m := <-c.subscriptions.MessageCh():
-			c.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
 		}
 	}
 }
