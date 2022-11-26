@@ -90,8 +90,7 @@ func newFigg(config *Config) (*Figg, error) {
 		logger = zap.NewNop()
 	}
 
-	return &Figg{
-		transport:        NewTransport(config.Addr, logger),
+	figg := &Figg{
 		pingInterval:     pingInterval,
 		stateSubscriber:  config.StateSubscriber,
 		topics:           NewTopics(),
@@ -100,7 +99,9 @@ func newFigg(config *Config) (*Figg, error) {
 		doneCh:           make(chan interface{}),
 		wg:               sync.WaitGroup{},
 		logger:           logger,
-	}, nil
+	}
+	figg.transport = NewTransport(config.Addr, logger, figg.onMessage, figg.onState)
+	return figg, nil
 }
 
 func (w *Figg) eventLoop() {
@@ -113,19 +114,19 @@ func (w *Figg) eventLoop() {
 		select {
 		case m := <-w.outgoingMessages:
 			w.transport.Send(m)
-		case m := <-w.transport.MessageCh():
-			w.onMessage(m)
-		case state := <-w.transport.StateCh():
-			w.onConnState(state)
-
-			if w.stateSubscriber != nil {
-				w.stateSubscriber.NotifyState(state)
-			}
 		case <-pingTicker.C:
 			w.ping()
 		case <-w.doneCh:
 			return
 		}
+	}
+}
+
+func (w *Figg) onState(state State) {
+	w.onConnState(state)
+
+	if w.stateSubscriber != nil {
+		w.stateSubscriber.NotifyState(state)
 	}
 }
 

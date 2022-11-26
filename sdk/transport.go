@@ -19,8 +19,8 @@ type Transport struct {
 	// being able to connect.
 	connectAttempts int
 
-	messageCh chan *ProtocolMessage
-	stateCh   chan State
+	messageCb func(m *ProtocolMessage)
+	stateCb   func(s State)
 
 	wg       sync.WaitGroup
 	shutdown int32
@@ -28,13 +28,13 @@ type Transport struct {
 	logger *zap.Logger
 }
 
-func NewTransport(addr string, logger *zap.Logger) *Transport {
+func NewTransport(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessage), stateCb func(s State)) *Transport {
 	transport := &Transport{
 		addr:            addr,
 		conn:            nil,
 		connectAttempts: 0,
-		messageCh:       make(chan *ProtocolMessage),
-		stateCh:         make(chan State),
+		messageCb:       messageCb,
+		stateCb:         stateCb,
 		wg:              sync.WaitGroup{},
 		shutdown:        0,
 		logger:          logger,
@@ -64,14 +64,6 @@ func (t *Transport) Send(m *ProtocolMessage) error {
 	return t.conn.Send(b)
 }
 
-func (t *Transport) MessageCh() <-chan *ProtocolMessage {
-	return t.messageCh
-}
-
-func (t *Transport) StateCh() <-chan State {
-	return t.stateCh
-}
-
 func (t *Transport) Shutdown() error {
 	// This will avoid log spam about errors when we shut down.
 	atomic.StoreInt32(&t.shutdown, 1)
@@ -98,7 +90,7 @@ func (t *Transport) recvLoop() {
 			if err := t.connect(); err != nil {
 				continue
 			}
-			t.stateCh <- StateConnected
+			t.stateCb(StateConnected)
 		}
 
 		m, err := t.recv()
@@ -110,13 +102,13 @@ func (t *Transport) recvLoop() {
 
 			t.logger.Debug("read failed", zap.Error(err))
 
-			t.stateCh <- StateDisconnected
+			t.stateCb(StateDisconnected)
 			t.conn = nil
 
 			continue
 		}
 
-		t.messageCh <- m
+		t.messageCb(m)
 	}
 }
 
