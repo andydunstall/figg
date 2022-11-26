@@ -9,7 +9,7 @@ import (
 )
 
 type Figg struct {
-	transport    *Transport
+	client       *Client
 	pingInterval time.Duration
 
 	stateSubscriber StateSubscriber
@@ -67,7 +67,7 @@ func (w *Figg) Unsubscribe(topic string, sub *MessageSubscriber) {
 }
 
 func (w *Figg) Shutdown() error {
-	if err := w.transport.Shutdown(); err != nil {
+	if err := w.client.Shutdown(); err != nil {
 		return err
 	}
 	close(w.doneCh)
@@ -100,7 +100,7 @@ func newFigg(config *Config) (*Figg, error) {
 		wg:               sync.WaitGroup{},
 		logger:           logger,
 	}
-	figg.transport = NewTransport(config.Addr, logger, figg.onMessage, figg.onState)
+	figg.client = NewClient(config.Addr, logger, figg.onMessage, figg.onState)
 	return figg, nil
 }
 
@@ -113,7 +113,7 @@ func (w *Figg) eventLoop() {
 	for {
 		select {
 		case m := <-w.outgoingMessages:
-			w.transport.Send(m)
+			w.client.Send(m)
 		case <-pingTicker.C:
 			w.ping()
 		case <-w.doneCh:

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Transport struct {
+type Client struct {
 	// addr is the address of the figg service.
 	addr string
 	// conn is the connection to a figg server or nil if not connected.
@@ -28,8 +28,8 @@ type Transport struct {
 	logger *zap.Logger
 }
 
-func NewTransport(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessage), stateCb func(s State)) *Transport {
-	transport := &Transport{
+func NewClient(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessage), stateCb func(s State)) *Client {
+	client := &Client{
 		addr:            addr,
 		conn:            nil,
 		connectAttempts: 0,
@@ -40,18 +40,18 @@ func NewTransport(addr string, logger *zap.Logger, messageCb func(m *ProtocolMes
 		logger:          logger,
 	}
 
-	transport.wg.Add(1)
-	go transport.recvLoop()
+	client.wg.Add(1)
+	go client.recvLoop()
 
-	return transport
+	return client
 }
 
-func (t *Transport) Send(m *ProtocolMessage) error {
-	if t.conn == nil {
-		return fmt.Errorf("transport not connected")
+func (c *Client) Send(m *ProtocolMessage) error {
+	if c.conn == nil {
+		return fmt.Errorf("client not connected")
 	}
 
-	t.logger.Debug(
+	c.logger.Debug(
 		"send message",
 		zap.Object("message", m),
 	)
@@ -61,85 +61,85 @@ func (t *Transport) Send(m *ProtocolMessage) error {
 		return err
 	}
 
-	return t.conn.Send(b)
+	return c.conn.Send(b)
 }
 
-func (t *Transport) Shutdown() error {
+func (c *Client) Shutdown() error {
 	// This will avoid log spam about errors when we shut down.
-	atomic.StoreInt32(&t.shutdown, 1)
+	atomic.StoreInt32(&c.shutdown, 1)
 
 	// Close the conn, which will stop the read loop.
-	if t.conn != nil {
-		t.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
 	}
 
 	// Block until all the listener threads have died.
-	t.wg.Wait()
+	c.wg.Wait()
 	return nil
 }
 
-func (t *Transport) recvLoop() {
-	defer t.wg.Done()
+func (c *Client) recvLoop() {
+	defer c.wg.Done()
 
 	for {
-		if s := atomic.LoadInt32(&t.shutdown); s == 1 {
+		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
 			return
 		}
 
-		if t.conn == nil {
-			if err := t.connect(); err != nil {
+		if c.conn == nil {
+			if err := c.connect(); err != nil {
 				continue
 			}
-			t.stateCb(StateConnected)
+			c.stateCb(StateConnected)
 		}
 
-		m, err := t.recv()
+		m, err := c.recv()
 		if err != nil {
 			// If we've been shutdown ignore the error and exit.
-			if s := atomic.LoadInt32(&t.shutdown); s == 1 {
+			if s := atomic.LoadInt32(&c.shutdown); s == 1 {
 				return
 			}
 
-			t.logger.Debug("read failed", zap.Error(err))
+			c.logger.Debug("read failed", zap.Error(err))
 
-			t.stateCb(StateDisconnected)
-			t.conn = nil
+			c.stateCb(StateDisconnected)
+			c.conn = nil
 
 			continue
 		}
 
-		t.messageCb(m)
+		c.messageCb(m)
 	}
 }
 
-func (t *Transport) connect() error {
-	backoff := t.getBackoffTimeout(t.connectAttempts)
+func (c *Client) connect() error {
+	backoff := c.getBackoffTimeout(c.connectAttempts)
 
-	t.logger.Debug(
+	c.logger.Debug(
 		"connecting",
-		zap.String("addr", t.addr),
+		zap.String("addr", c.addr),
 		zap.Duration("backoff", backoff),
 	)
 
 	<-time.After(backoff)
 
-	conn, err := WSConnect(t.addr)
+	conn, err := WSConnect(c.addr)
 	if err != nil {
-		t.connectAttempts += 1
+		c.connectAttempts += 1
 
-		t.logger.Debug("connection failed", zap.Error(err))
+		c.logger.Debug("connection failed", zap.Error(err))
 		return err
 	}
 
-	t.conn = conn
-	t.connectAttempts = 0
+	c.conn = conn
+	c.connectAttempts = 0
 
-	t.logger.Debug("connection ok")
+	c.logger.Debug("connection ok")
 	return nil
 }
 
-func (t *Transport) recv() (*ProtocolMessage, error) {
-	b, err := t.conn.Recv()
+func (c *Client) recv() (*ProtocolMessage, error) {
+	b, err := c.conn.Recv()
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (t *Transport) recv() (*ProtocolMessage, error) {
 	return ProtocolMessageFromBytes(b)
 }
 
-func (t *Transport) getBackoffTimeout(n int) time.Duration {
+func (c *Client) getBackoffTimeout(n int) time.Duration {
 	if n == 0 {
 		return 0
 	}
