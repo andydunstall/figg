@@ -21,27 +21,18 @@ func WSConnect(addr string) (*WSConnection, error) {
 	}, nil
 }
 
-func (t *WSConnection) Send(m *ProtocolMessage) error {
-	b, err := m.Encode()
-	if err != nil {
-		return err
-	}
-	return t.ws.WriteMessage(websocket.BinaryMessage, b)
+func (c *WSConnection) Send(b []byte) error {
+	return c.ws.WriteMessage(websocket.BinaryMessage, b)
 }
 
-func (t *WSConnection) Recv() (*ProtocolMessage, error) {
-	_, b, err := t.ws.ReadMessage()
+func (c *WSConnection) Recv() ([]byte, error) {
+	_, b, err := c.ws.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
-
-	m, err := ProtocolMessageFromBytes(b)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return b, nil
 }
 
-func (t *WSConnection) Close() error {
-	return t.ws.Close()
+func (c *WSConnection) Close() error {
+	return c.ws.Close()
 }

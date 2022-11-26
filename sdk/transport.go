@@ -14,7 +14,7 @@ type Transport struct {
 	// addr is the address of the figg service.
 	addr string
 	// conn is the connection to a figg server or nil if not connected.
-	conn *WSConnection
+	conn Connection
 	// connectAttempts is the number of attempts to connect to figg without
 	// being able to connect.
 	connectAttempts int
@@ -56,7 +56,12 @@ func (t *Transport) Send(m *ProtocolMessage) error {
 		zap.Object("message", m),
 	)
 
-	return t.conn.Send(m)
+	b, err := m.Encode()
+	if err != nil {
+		return err
+	}
+
+	return t.conn.Send(b)
 }
 
 func (t *Transport) MessageCh() <-chan *ProtocolMessage {
@@ -96,7 +101,7 @@ func (t *Transport) recvLoop() {
 			t.stateCh <- StateConnected
 		}
 
-		m, err := t.conn.Recv()
+		m, err := t.recv()
 		if err != nil {
 			// If we've been shutdown ignore the error and exit.
 			if s := atomic.LoadInt32(&t.shutdown); s == 1 {
@@ -139,6 +144,15 @@ func (t *Transport) connect() error {
 
 	t.logger.Debug("connection ok")
 	return nil
+}
+
+func (t *Transport) recv() (*ProtocolMessage, error) {
+	b, err := t.conn.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	return ProtocolMessageFromBytes(b)
 }
 
 func (t *Transport) getBackoffTimeout(n int) time.Duration {
