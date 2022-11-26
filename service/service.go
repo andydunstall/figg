@@ -10,19 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func setupLogger(debugMode bool) (*zap.Logger, error) {
-	if debugMode {
-		logger, err := zap.NewDevelopment()
-		if err != nil {
-			return nil, err
-		}
-		return logger, nil
-	}
-	return zap.NewProduction()
-}
-
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
-	logger.Info("starting figg", zap.String("addr", config.Addr))
+	logger.Info("starting figg service", zap.String("addr", config.Addr))
 
 	server := server.NewServer(logger)
 
@@ -40,9 +29,9 @@ func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 	<-doneCh
 
 	logger.Info("starting shut down")
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
+
 	err = server.Shutdown(ctx)
-	logger.Info("finished shut down", zap.Error(err))
+	logger.Info("shut down complete", zap.Error(err))
 }

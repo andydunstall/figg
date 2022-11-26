@@ -22,6 +22,21 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 	return zap.NewProduction()
 }
 
+func setupCPUProfile(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	pprof.StartCPUProfile(f)
+	return nil
+}
+
+func waitForInterrupt() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+}
+
 func main() {
 	config, err := config.ParseConfig()
 	if err != nil {
@@ -35,12 +50,10 @@ func main() {
 	defer logger.Sync()
 
 	if config.CPUProfile != "" {
-		f, err := os.Create(config.CPUProfile)
-		if err != nil {
-			logger.Error("failed to start cpu profile", zap.Error(err))
+		if err := setupCPUProfile(config.CPUProfile); err != nil {
+			logger.Fatal("failed to start cpu profile", zap.Error(err))
 		}
-		logger.Info("starting cpu profile", zap.String("output", config.CPUProfile))
-		pprof.StartCPUProfile(f)
+		logger.Info("started cpu profile", zap.String("output", config.CPUProfile))
 		defer pprof.StopCPUProfile()
 	}
 
@@ -49,11 +62,8 @@ func main() {
 		service.Run(config, logger, doneCh)
 	}()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	// Block until we receive our signal.
-	<-c
-	close(doneCh)
-
+	waitForInterrupt()
 	logger.Info("received interrupt")
+
+	close(doneCh)
 }
