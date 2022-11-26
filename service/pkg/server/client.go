@@ -90,7 +90,11 @@ func (c *Client) readLoop() error {
 func (c *Client) writeLoop() {
 	for {
 		c.mu.Lock()
-		c.cv.Wait()
+		// Only block if we don't have any outgoing messagese to process
+		// (otherwise we can miss signals and deadlock).
+		if len(c.outgoing) == 0 {
+			c.cv.Wait()
+		}
 		c.mu.Unlock()
 
 		outgoing := c.takeOutgoing()
