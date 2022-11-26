@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/andydunstall/figg/service/pkg/conn"
@@ -56,44 +55,10 @@ func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
 		zap.String("addr", addr),
 	)
 
-	transport := conn.NewTransport(conn.NewWSConnection(ws))
-	defer transport.Shutdown()
+	client := NewClient(conn.NewWSConnection(ws), s.broker)
+	defer client.Shutdown()
 
-	subscriptions := topic.NewSubscriptions(s.broker)
-	defer subscriptions.Shutdown()
-
-	for {
-		select {
-		case m := <-transport.MessageCh():
-			if m == nil {
-				break
-			}
-
-			switch m.Type {
-			case conn.TypePing:
-				transport.Send(conn.NewPongMessage(m.Ping.Timestamp))
-			case conn.TypeAttach:
-				if m.Attach.Offset != "" {
-					offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
-					if err != nil {
-						// If the offset is invalid subscribe without.
-						subscriptions.AddSubscription(m.Attach.Topic)
-					} else {
-						subscriptions.AddSubscriptionFromOffset(m.Attach.Topic, offset)
-					}
-				} else {
-					subscriptions.AddSubscription(m.Attach.Topic)
-				}
-				transport.Send(conn.NewAttachedMessage())
-			case conn.TypePublish:
-				topic := s.broker.GetTopic(m.Publish.Topic)
-				topic.Publish(m.Publish.Payload)
-				transport.Send(conn.NewACKMessage(m.Publish.SeqNum))
-			}
-		case m := <-subscriptions.MessageCh():
-			transport.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
-		}
-	}
+	client.Serve()
 }
 
 func (s *Server) Serve(lis net.Listener) error {
