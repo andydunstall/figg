@@ -22,6 +22,10 @@ type Client struct {
 	messageCb func(m *ProtocolMessage)
 	stateCb   func(s State)
 
+	outgoing [][]byte
+	mu       *sync.Mutex
+	cv       *sync.Cond
+
 	wg       sync.WaitGroup
 	shutdown int32
 
@@ -29,19 +33,24 @@ type Client struct {
 }
 
 func NewClient(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessage), stateCb func(s State)) *Client {
+	mu := &sync.Mutex{}
 	client := &Client{
 		addr:            addr,
 		conn:            nil,
 		connectAttempts: 0,
 		messageCb:       messageCb,
 		stateCb:         stateCb,
+		outgoing:        [][]byte{},
+		mu:              mu,
+		cv:              sync.NewCond(mu),
 		wg:              sync.WaitGroup{},
 		shutdown:        0,
 		logger:          logger,
 	}
 
 	client.wg.Add(1)
-	go client.recvLoop()
+	go client.readLoop()
+	go client.writeLoop()
 
 	return client
 }
@@ -61,7 +70,12 @@ func (c *Client) Send(m *ProtocolMessage) error {
 		return err
 	}
 
-	return c.conn.Send(b)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.outgoing = append(c.outgoing, b)
+	c.cv.Signal()
+	return nil
 }
 
 func (c *Client) Shutdown() error {
@@ -78,7 +92,7 @@ func (c *Client) Shutdown() error {
 	return nil
 }
 
-func (c *Client) recvLoop() {
+func (c *Client) readLoop() {
 	defer c.wg.Done()
 
 	for {
@@ -109,6 +123,25 @@ func (c *Client) recvLoop() {
 		}
 
 		c.messageCb(m)
+	}
+}
+
+func (c *Client) writeLoop() {
+	defer c.wg.Done()
+
+	for {
+		c.mu.Lock()
+		c.cv.Wait()
+		c.mu.Unlock()
+
+		outgoing := c.takeOutgoing()
+		for _, b := range outgoing {
+			if err := c.conn.Send(b); err != nil {
+				// If we get an error expect the read will fail so the
+				// connection will close.
+				return
+			}
+		}
 	}
 }
 
@@ -157,4 +190,13 @@ func (c *Client) getBackoffTimeout(n int) time.Duration {
 		coefficient = 100
 	}
 	return time.Duration(coefficient) * 100 * time.Millisecond
+}
+
+func (c *Client) takeOutgoing() [][]byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	outgoing := c.outgoing
+	c.outgoing = [][]byte{}
+	return outgoing
 }
