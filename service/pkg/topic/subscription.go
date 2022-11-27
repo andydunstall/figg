@@ -79,13 +79,13 @@ func (s *Subscription) sendLoop() {
 			return
 		}
 
-		// Note doesn't need to be locked by mu as only the sendLoop updates
-		// s.lastOffset.
-		for s.lastOffset < s.topic.Offset() {
+		for {
 			// Note if there is no message with offset s.lastOffset+1, will
 			// round up to the earliest message on the topic.
 			m, offset, ok := s.topic.GetMessage(s.lastOffset + 1)
 			if !ok {
+				// If there is no message we are up to date so wait for a
+				// signal.
 				break
 			}
 
