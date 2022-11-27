@@ -8,15 +8,16 @@ which is used by Cassandra.
 
 FCM is a server written in Go that manages Figg clusters, exposing a REST API
 to issue commands. It runs Figg nodes in their own goroutine as part of
-the FCM process. This means it must be restarted when then Figg service
-changes, though running system tests should be rare so shouldn't be a big issue.
+the FCM process.
+
+*Note the current FCM interface is designed to support multiple node clusters,
+though Figg doesn't yet support clustering so is only used for a single node
+cluster at the moment.*
 
 ## Usage
-FCM exposes an HTTP API to manage Figg clusters. Theres also a [Go SDK](./sdk).
+FCM exposes a REST API to manage Figg clusters. Theres also a [Go SDK](./sdk).
 
 ### Cluster
-A cluster manages a set of nodes.
-
 Create a cluster using:
 ```
 POST /clusters
