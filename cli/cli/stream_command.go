@@ -11,6 +11,8 @@ import (
 
 type StreamCommand struct {
 	Config   *FiggConfig
+	PubAddr  string
+	SubAddr  string
 	cobraCmd *cobra.Command
 }
 
@@ -24,6 +26,10 @@ func NewStreamCommand(config *FiggConfig) *StreamCommand {
 			return command.run()
 		},
 	}
+
+	cobraCmd.PersistentFlags().StringVar(&command.PubAddr, "pub-addr", "127.0.0.1:8119", "publisher figg cluster address")
+	cobraCmd.PersistentFlags().StringVar(&command.SubAddr, "sub-addr", "127.0.0.1:8119", "subscriber figg cluster address")
+
 	command.cobraCmd = cobraCmd
 	return command
 }
@@ -37,25 +43,29 @@ func (c *StreamCommand) CobraCommand() *cobra.Command {
 }
 
 func (c *StreamCommand) run() error {
+	pubStateSubscriber := figg.NewChannelStateSubscriber()
 	publisher, err := figg.NewFigg(&figg.Config{
-		Addr: c.Config.Addr,
+		Addr:            c.PubAddr,
+		StateSubscriber: pubStateSubscriber,
 	})
 	if err != nil {
 		return err
 	}
 
+	subStateSubscriber := figg.NewChannelStateSubscriber()
 	subscriber, err := figg.NewFigg(&figg.Config{
-		Addr: c.Config.Addr,
+		Addr:            c.SubAddr,
+		StateSubscriber: subStateSubscriber,
 	})
 	if err != nil {
 		return err
 	}
 
-	last := -1
+	last := 0
 	subscriber.Subscribe("stream-topic", func(topic string, m []byte) {
 		n, _ := strconv.Atoi(string(m))
-		if last != -1 && n != last+1 {
-			fmt.Println("inconsistent messages")
+		if last != 0 && n != last+1 {
+			panic("out of order messages")
 		}
 		last = n
 
@@ -64,9 +74,18 @@ func (c *StreamCommand) run() error {
 		}
 	})
 
-	for i := 0; ; i++ {
-		publisher.Publish("stream-topic", []byte(fmt.Sprintf("%d", i)))
-		<-time.After(time.Millisecond * 100)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	i := 1
+	for {
+		select {
+		case <-ticker.C:
+			publisher.Publish("stream-topic", []byte(fmt.Sprintf("%d", i)))
+			i++
+		case state := <-subStateSubscriber.Ch():
+			fmt.Println("sub state", figg.StateToString(state))
+		case state := <-pubStateSubscriber.Ch():
+			fmt.Println("pub state", figg.StateToString(state))
+		}
 	}
 
 	return nil

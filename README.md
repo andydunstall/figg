@@ -29,9 +29,10 @@ Although most behaviours should have automated tests its often useful to run
 tests manually. Theres tools in [`cli/`](./cli) and [`fcm/`](./fcm) to make
 this easy.
 
-Such as to check no messages are dropped when the client disconnects, can spin
-up a Figg node with FCM, stream messages every 100ms from the CLI and inject
-a partition into FCM for 2 seconds, repeating every 10s:
+Such as to check no messages are dropped when the subscriber disconnects, can
+spin up a Figg node with FCM, inject a partition into the nodes proxy for
+2 seconds every 10 seconds, and stream messages from a subscriber connected
+to the proxy.
 ```bash
 
 # Start FCM
@@ -48,10 +49,20 @@ $ ./bin/fcm-cli.sh cluster create
     -------
     ID:  72c6dcb8 | Addr: 127.0.0.1:40000 | Proxy Addr: 127.0.0.1:40001
 
+# Inject a partition every 10 seconds that lasts for 2 seconds.
+$ ./bin/fcm-cli.sh chaos partition --node 72c6dcb8 --duration 2 --repeat 10
+
 # Start the CLI to stream messages every 100ms. This will throw an error if it
 # detects out of order messages.
-./bin/cli.sh --addr 127.0.0.1:40001 stream
-
-# Inject a partition every 10 seconds that lasts for 2 seconds.
-./bin/fcm-cli.sh chaos partition --node 72c6dcb8 --duration 2 --repeat 10
+$ ./bin/cli.sh stream --sub-addr 127.0.0.1:40001 --pub-addr 127.0.0.1:40000
+pub state CONNECTED
+sub state CONNECTED
+received 50
+received 100
+received 150
+sub state DISCONNECTED
+sub state CONNECTED
+received 200
+received 250
+...
 ```
