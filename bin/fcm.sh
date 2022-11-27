@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if ! pgrep -x "toxiproxy-server" > /dev/null
+if ! pgrep "toxiproxy-ser" > /dev/null
 then
     echo "toxiproxy-server not running"
 	exit 1
