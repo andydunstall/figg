@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"strconv"
 	"sync"
 )
 
@@ -57,9 +58,10 @@ func (t *Topic) Publish(b []byte) {
 	t.offset += 1
 	t.messages[t.offset] = b
 
+	serial := strconv.FormatUint(t.offset, 10)
 	// Notify all subscribers to wake up and send the latest message.
 	for sub, _ := range t.subscribers {
-		sub.Notify(t.offset, b)
+		sub.Notify(serial, b)
 	}
 }
 

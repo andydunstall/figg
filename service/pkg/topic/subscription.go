@@ -49,11 +49,11 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, lastOffset u
 }
 
 // Notify notifys the subscriber about a new message.
-func (s *Subscription) Notify(offset uint64, m []byte) {
+func (s *Subscription) Notify(serial string, m []byte) {
 	s.attachment.Send(TopicMessage{
 		Topic:   s.topic.Name(),
 		Message: m,
-		Offset:  strconv.FormatUint(offset, 10),
+		Offset:  serial,
 	})
 }
 
