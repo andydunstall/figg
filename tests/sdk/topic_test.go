@@ -28,12 +28,14 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 	assert.Nil(t, err)
 	defer client.Shutdown()
 
-	messageSubscriber := figg.NewChannelMessageSubscriber()
-	client.Subscribe("foo", messageSubscriber)
+	messageCh := make(chan []byte)
+	client.Subscribe("foo", func(topic string, m []byte) {
+		messageCh <- m
+	})
 
 	client.Publish("foo", []byte("bar"))
 
-	assert.Equal(t, []byte("bar"), <-messageSubscriber.Ch())
+	assert.Equal(t, []byte("bar"), <-messageCh)
 }
 
 // Tests a subscriber recovers lost messages after a disconnect.
@@ -64,15 +66,17 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	assert.Nil(t, err)
 	defer subscriberClient.Shutdown()
 
-	messageSubscriber := figg.NewChannelMessageSubscriber()
-	subscriberClient.Subscribe("foo", messageSubscriber)
+	messageCh := make(chan []byte)
+	subscriberClient.Subscribe("foo", func(topic string, m []byte) {
+		messageCh <- m
+	})
 
 	// TODO(AD) Wait for subscribe to become attached.
 	<-time.After(time.Second)
 
 	// Publish a message and wait to receive.
 	publisherClient.Publish("foo", []byte("bar"))
-	assert.Equal(t, []byte("bar"), <-messageSubscriber.Ch())
+	assert.Equal(t, []byte("bar"), <-messageCh)
 
 	// Disable the networking for the subscriber and reenable after 5 seconds.
 	// While disconnected publish 3 messages.
@@ -88,6 +92,6 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 
 	// Once we reconnect we should get the messages we missed.
 	for i := 0; i < 5; i++ {
-		assert.Equal(t, []byte(fmt.Sprintf("msg-%d", i)), <-messageSubscriber.Ch())
+		assert.Equal(t, []byte(fmt.Sprintf("msg-%d", i)), <-messageCh)
 	}
 }
