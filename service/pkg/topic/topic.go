@@ -93,7 +93,7 @@ func (t *Topic) Unsubscribe(s *Subscription) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	subscribers := make([]*Subscription, len(t.subscribers))
+	subscribers := make([]*Subscription, 0, len(t.subscribers))
 	for _, sub := range t.subscribers {
 		if s != sub {
 			subscribers = append(subscribers, s)
