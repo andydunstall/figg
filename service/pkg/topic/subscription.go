@@ -2,7 +2,6 @@ package topic
 
 import (
 	"strconv"
-	"sync"
 	"sync/atomic"
 )
 
@@ -20,12 +19,11 @@ type TopicMessage struct {
 type Subscription struct {
 	topic *Topic
 	// lastOffset is the offset of the last processed message in the topic.
+	// This is only set if the subscriber is resuming.
 	lastOffset uint64
 
 	attachment Attachment
 
-	cv       *sync.Cond
-	mu       *sync.Mutex
 	shutdown int32
 }
 
@@ -41,24 +39,22 @@ func NewSubscription(attachment Attachment, topic *Topic) *Subscription {
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
 func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, lastOffset uint64) *Subscription {
-	mu := &sync.Mutex{}
 	s := &Subscription{
 		topic:      topic,
 		lastOffset: lastOffset,
 		attachment: attachment,
-		cv:         sync.NewCond(mu),
-		mu:         mu,
 	}
-	topic.Subscribe(s)
 	go s.sendLoop()
 	return s
 }
 
-// Signal signals the send loop to check for new messages on the topic.
-func (s *Subscription) Signal() {
-	s.mu.Lock()
-	s.cv.Signal()
-	s.mu.Unlock()
+// Notify notifys the subscriber about a new message.
+func (s *Subscription) Notify(offset uint64, m []byte) {
+	s.attachment.Send(TopicMessage{
+		Topic:   s.topic.Name(),
+		Message: m,
+		Offset:  strconv.FormatUint(offset, 10),
+	})
 }
 
 // Shutdown unsubscribes and stops the send loop.
@@ -68,9 +64,6 @@ func (s *Subscription) Shutdown() {
 	// Notify the send loop to stop (must signal it to wake up to check the
 	// shutdown flag).
 	atomic.StoreInt32(&s.shutdown, 1)
-	s.mu.Lock()
-	s.cv.Signal()
-	s.mu.Unlock()
 }
 
 func (s *Subscription) sendLoop() {
@@ -79,28 +72,26 @@ func (s *Subscription) sendLoop() {
 			return
 		}
 
-		for {
-			// Note if there is no message with offset s.lastOffset+1, will
-			// round up to the earliest message on the topic.
-			m, offset, ok := s.topic.GetMessage(s.lastOffset + 1)
-			if !ok {
-				// If there is no message we are up to date so wait for a
-				// signal.
-				break
+		// Note if there is no message with offset s.lastOffset+1, will
+		// round up to the earliest message on the topic.
+		m, offset, ok := s.topic.GetMessage(s.lastOffset + 1)
+		if !ok {
+			// If we are up to date, register with the topic for the latest
+			// messages. Note checking if we are up to date and registering
+			// must be atomic to avoid missing messages.
+			if s.topic.SubscribeIfLatest(s.lastOffset, s) {
+				return
 			}
-
-			s.attachment.Send(TopicMessage{
-				Topic:   s.topic.Name(),
-				Message: m,
-				Offset:  strconv.FormatUint(offset, 10),
-			})
-			s.lastOffset = offset
+			// If theres been a new message since we last checked just try
+			// again.
+			continue
 		}
 
-		// Block until we are either shut down or there is a new message on
-		// the topic.
-		s.mu.Lock()
-		s.cv.Wait()
-		s.mu.Unlock()
+		s.attachment.Send(TopicMessage{
+			Topic:   s.topic.Name(),
+			Message: m,
+			Offset:  strconv.FormatUint(offset, 10),
+		})
+		s.lastOffset = offset
 	}
 }

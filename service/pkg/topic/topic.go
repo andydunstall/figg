@@ -59,15 +59,20 @@ func (t *Topic) Publish(b []byte) {
 
 	// Notify all subscribers to wake up and send the latest message.
 	for sub, _ := range t.subscribers {
-		sub.Signal()
+		sub.Notify(t.offset, b)
 	}
 }
 
-func (t *Topic) Subscribe(s *Subscription) {
+func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if offset != t.offset {
+		return false
+	}
+
 	t.subscribers[s] = struct{}{}
+	return true
 }
 
 func (t *Topic) Unsubscribe(s *Subscription) {
