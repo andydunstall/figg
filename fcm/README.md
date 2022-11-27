@@ -14,64 +14,60 @@ the FCM process.
 though Figg doesn't yet support clustering so is only used for a single node
 cluster at the moment.*
 
+## Components
+* [`service/`](./service): FCM backend service,
+* [`sdk/`](./sdk): FCM Go SDK,
+* [`cli/`](./cli): FCM CLI.
+
 ## Usage
-FCM exposes a REST API to manage Figg clusters. Theres also a [Go SDK](./sdk).
+This shows the CLI commands to interract with FCM. Theres also a [Go SDK](./sdk)
+used for system tests, and FCM exposed a REST API to create new clients.
+
+Note can call with `bin/fcm-cli.sh` to avoid having to recompile.
+
+These commands require FCM to be running (`bin/fcm.sh`).
 
 ### Cluster
-Create a cluster using:
-```
-POST /clusters
-```
-This returns a unique ID for the cluster.
+Create a cluster, which starts a single Figg node:
+```bash
+$ fcm cluster create
 
-Then delete it again with:
-```
-DELETE /clusters/{clusterID}
-```
-This will stop all nodes in the cluster.
+    Cluster
+    -------
+    ID: 2615f9d2
 
-### Nodes
-Figg service nodes can be added with:
-```
-POST /clusters/{clusterID}/nodes
-```
-This adds a node to the cluster with the given ID, assigning a unique ID and
-port to the node.
+    Nodes
+    -------
+    ID:  72c6dcb8 | Addr: 127.0.0.1:40000 | Proxy Addr: 127.0.0.1:40001
 
-The node can then be removed again with:
 ```
-DELETE /clusters/{clusterID}/nodes/{nodeID}
-```
-Which will stop the node and wait for it to exit.
+
+The proxy address is a FCM proxy targetted at the node address, used to inject
+faults into the connection. Such as may want to test subscribers resume
+correctly when they disconnect, so can target a publisher at the node address
+and a subscriber at the proxy address, then inject faults into the subscribers
+connection.
 
 ### Chaos
 FCM adds a [toxiproxy](https://github.com/Shopify/toxiproxy) proxy for each
-node. This makes it easy to inject chaos into the cluster.
+node. This is used in inject faults into the nodes connections, when connected
+to the proxy address.
 
-**Enable/Disable A Node**
+Each chaos command has options arguments:
+* `duration`: How long the fault should last in seconds (if not defined lasts
+forever),
+* `repeat`: How often the fault should be injected in seconds (if not defined
+never repeats)
 
-Disable the networking for a node. This just stops proxying any traffic to the
-node.
-```
-POST /clusters/{clusterID}/nodes/{nodeID}/disable
-```
+#### Add Partition
+Disables the proxy such that existing connections close and new connections
+time out.
 
-Enable the node again:
 ```
-POST /clusters/{clusterID}/nodes/{nodeID}/enable
-```
-
-**Latency**
-
-Add latency to the nodes network. This will return a unique handle ID.
-```
-POST /clusters/{clusterID}/nodes/{nodeID}/latency?latency=N
+$ fcm chaos partition --node {node ID} [--duration {duration}] [--repeat {repeat}]
 ```
 
-**Clear**
-
-Other than enable/disable, adding chaos returns a handle ID. The chaos schenario
-can be cleared with:
+Such as can to a partition that lasts 2 seconds and repeats every 10 seconds.
 ```
-DELETE /clusters/{clusterID}/nodes/{nodeID}/chaos/{scenarioID}
+$ fcm chaos partition --node 72c6dcb8 --duration 2 --repeat 10
 ```
