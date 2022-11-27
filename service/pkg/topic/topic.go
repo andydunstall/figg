@@ -6,8 +6,13 @@ import (
 )
 
 type Topic struct {
-	name        string
-	subscribers map[*Subscription]interface{}
+	name string
+	// Note choosing a slice over a map. This is since a large majority of
+	// accesses is from t.Publish iterating though the subscribers, which is
+	// much faster to iterate a slice rather than a map. The cost is
+	// unsubscribing becomes O(n) though unsubscribes should be rare and
+	// expecting the number of subscribers to be relatively smallk
+	subscribers []*Subscription
 	messages    map[uint64][]byte
 	offset      uint64
 	mu          sync.Mutex
@@ -16,7 +21,7 @@ type Topic struct {
 func NewTopic(name string) *Topic {
 	return &Topic{
 		name:        name,
-		subscribers: map[*Subscription]interface{}{},
+		subscribers: []*Subscription{},
 		messages:    map[uint64][]byte{},
 		offset:      0,
 		mu:          sync.Mutex{},
@@ -60,7 +65,7 @@ func (t *Topic) Publish(b []byte) {
 
 	serial := strconv.FormatUint(t.offset, 10)
 	// Notify all subscribers to wake up and send the latest message.
-	for sub, _ := range t.subscribers {
+	for _, sub := range t.subscribers {
 		sub.Notify(serial, b)
 	}
 }
@@ -69,7 +74,7 @@ func (t *Topic) Subscribe(s *Subscription) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.subscribers[s] = struct{}{}
+	t.subscribers = append(t.subscribers, s)
 }
 
 func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
@@ -80,7 +85,7 @@ func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
 		return false
 	}
 
-	t.subscribers[s] = struct{}{}
+	t.subscribers = append(t.subscribers, s)
 	return true
 }
 
@@ -88,5 +93,11 @@ func (t *Topic) Unsubscribe(s *Subscription) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	delete(t.subscribers, s)
+	subscribers := make([]*Subscription, len(t.subscribers))
+	for _, sub := range t.subscribers {
+		if s != sub {
+			subscribers = append(subscribers, s)
+		}
+	}
+	t.subscribers = subscribers
 }
