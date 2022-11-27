@@ -6,10 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type fakeAttachment struct {
+	Ch chan TopicMessage
+}
+
+func newFakeAttachment() *fakeAttachment {
+	return &fakeAttachment{
+		Ch: make(chan TopicMessage),
+	}
+}
+
+func (a *fakeAttachment) Send(m TopicMessage) {
+	a.Ch <- m
+}
+
 func TestSubscription_SubscribeLatest(t *testing.T) {
-	messageCh := make(chan TopicMessage)
 	topic := NewTopic("mytopic")
-	sub := NewSubscription(messageCh, topic)
+	attachment := newFakeAttachment()
+	sub := NewSubscription(attachment, topic)
 	defer sub.Shutdown()
 
 	topic.Publish([]byte("foo"))
@@ -20,17 +34,17 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 		Topic:   "mytopic",
 		Offset:  "1",
 		Message: []byte("foo"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
 		Offset:  "2",
 		Message: []byte("bar"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
 		Offset:  "3",
 		Message: []byte("car"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 }
 
 func TestSubscription_SubscribeRecover(t *testing.T) {
@@ -40,8 +54,8 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 	topic.Publish([]byte("foo"))
 	topic.Publish([]byte("bar"))
 
-	messageCh := make(chan TopicMessage)
-	sub := NewSubscriptionFromOffset(messageCh, topic, 0)
+	attachment := newFakeAttachment()
+	sub := NewSubscriptionFromOffset(attachment, topic, 0)
 	defer sub.Shutdown()
 
 	// Publish 2 messages prior after subscribing.
@@ -52,20 +66,20 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 		Topic:   "mytopic",
 		Offset:  "1",
 		Message: []byte("foo"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
 		Offset:  "2",
 		Message: []byte("bar"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
 		Offset:  "3",
 		Message: []byte("baz"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
 		Offset:  "4",
 		Message: []byte("car"),
-	}, <-messageCh)
+	}, <-attachment.Ch)
 }
