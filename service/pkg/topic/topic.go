@@ -10,7 +10,7 @@ type Topic struct {
 	subscribers map[*Subscription]interface{}
 	messages    map[uint64][]byte
 	offset      uint64
-	mu          sync.RWMutex
+	mu          sync.Mutex
 }
 
 func NewTopic(name string) *Topic {
@@ -19,7 +19,7 @@ func NewTopic(name string) *Topic {
 		subscribers: map[*Subscription]interface{}{},
 		messages:    map[uint64][]byte{},
 		offset:      0,
-		mu:          sync.RWMutex{},
+		mu:          sync.Mutex{},
 	}
 }
 
@@ -29,8 +29,8 @@ func (t *Topic) Name() string {
 
 // Offset returns the offset of the last message processed.
 func (t *Topic) Offset() uint64 {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	return t.offset
 }
@@ -38,8 +38,8 @@ func (t *Topic) Offset() uint64 {
 // GetMessage returns the message with the given offset. If the offset is
 // less than the earliest message, will round up to the next message.
 func (t *Topic) GetMessage(offset uint64) ([]byte, uint64, bool) {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	if offset > t.offset {
 		return nil, 0, false
