@@ -66,7 +66,7 @@ func (t *Topic) Publish(b []byte) {
 	serial := strconv.FormatUint(t.offset, 10)
 	// Notify all subscribers to wake up and send the latest message.
 	for _, sub := range t.subscribers {
-		sub.Notify(serial, b)
+		sub.Notify(t.name, serial, b)
 	}
 }
 
