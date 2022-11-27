@@ -11,11 +11,13 @@ type MessageType uint16
 const (
 	TypeAttach   = MessageType(1)
 	TypeAttached = MessageType(2)
-	TypePublish  = MessageType(3)
-	TypeACK      = MessageType(4)
-	TypePayload  = MessageType(5)
-	TypePing     = MessageType(6)
-	TypePong     = MessageType(7)
+	TypeDetach   = MessageType(3)
+	TypeDetached = MessageType(4)
+	TypePublish  = MessageType(5)
+	TypeACK      = MessageType(6)
+	TypePayload  = MessageType(7)
+	TypePing     = MessageType(8)
+	TypePong     = MessageType(9)
 )
 
 type AttachMessage struct {
@@ -29,6 +31,17 @@ func NewAttachedMessage() *ProtocolMessage {
 	return &ProtocolMessage{
 		Type:     TypeAttached,
 		Attached: &AttachedMessage{},
+	}
+}
+
+type DetachMessage struct{}
+
+type DetachedMessage struct{}
+
+func NewDetachedMessage() *ProtocolMessage {
+	return &ProtocolMessage{
+		Type:     TypeDetached,
+		Detached: &DetachedMessage{},
 	}
 }
 
@@ -100,6 +113,8 @@ type ProtocolMessage struct {
 	Type     MessageType
 	Attach   *AttachMessage
 	Attached *AttachedMessage
+	Detach   *DetachMessage
+	Detached *DetachedMessage
 	Publish  *PublishMessage
 	ACK      *ACKMessage
 	Payload  *PayloadMessage

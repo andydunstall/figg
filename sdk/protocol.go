@@ -12,11 +12,13 @@ type MessageType uint16
 const (
 	TypeAttach   = MessageType(1)
 	TypeAttached = MessageType(2)
-	TypePublish  = MessageType(3)
-	TypeACK      = MessageType(4)
-	TypePayload  = MessageType(5)
-	TypePing     = MessageType(6)
-	TypePong     = MessageType(7)
+	TypeDetach   = MessageType(3)
+	TypeDetached = MessageType(4)
+	TypePublish  = MessageType(5)
+	TypeACK      = MessageType(6)
+	TypePayload  = MessageType(7)
+	TypePing     = MessageType(8)
+	TypePong     = MessageType(9)
 )
 
 type AttachMessage struct {
@@ -52,6 +54,30 @@ func (m AttachMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 type AttachedMessage struct{}
 
 func (m AttachedMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	return nil
+}
+
+type DetachMessage struct {
+	Topic string
+}
+
+func NewDetachMessage(topic string) *ProtocolMessage {
+	return &ProtocolMessage{
+		Type: TypeDetach,
+		Detach: &DetachMessage{
+			Topic: topic,
+		},
+	}
+}
+
+func (m DetachMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("topic", m.Topic)
+	return nil
+}
+
+type DetachedMessage struct{}
+
+func (m DetachedMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
@@ -143,6 +169,8 @@ type ProtocolMessage struct {
 	Type     MessageType
 	Attach   *AttachMessage
 	Attached *AttachedMessage
+	Detach   *DetachMessage
+	Detached *DetachedMessage
 	Publish  *PublishMessage
 	ACK      *ACKMessage
 	Payload  *PayloadMessage

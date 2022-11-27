@@ -64,14 +64,20 @@ func (t *Topics) Subscribe(topicName string, cb MessageHandler) (*MessageSubscri
 	return topic.Subscribe(cb)
 }
 
-func (t *Topics) Unsubscribe(topicName string, sub *MessageSubscriber) {
+// Unsubscribes from the given topic. Returns true if the topic now has no
+// subscribes (so is inactive), false otherwise.
+func (t *Topics) Unsubscribe(topicName string, sub *MessageSubscriber) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	topic, ok := t.topics[topicName]
 	if !ok {
-		return
+		return true
 	}
 
-	topic.Unsubscribe(sub)
+	inactive := topic.Unsubscribe(sub)
+	if inactive {
+		delete(t.topics, topicName)
+	}
+	return inactive
 }

@@ -61,9 +61,13 @@ func (t *Topic) Subscribe(cb MessageHandler) (*MessageSubscriber, bool) {
 	return sub, activated
 }
 
-func (t *Topic) Unsubscribe(sub *MessageSubscriber) {
+// Unsubscribes from the topic. Returns true if the topic now has no subscribers
+// (so is inactive), false otherwise.
+func (t *Topic) Unsubscribe(sub *MessageSubscriber) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	delete(t.subscribers, sub)
+
+	return len(t.subscribers) == 0
 }

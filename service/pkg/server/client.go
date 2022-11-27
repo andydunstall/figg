@@ -125,6 +125,9 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 			c.subscriptions.AddSubscription(m.Attach.Topic)
 		}
 		c.Send(conn.NewAttachedMessage())
+	case conn.TypeDetach:
+		// TODO(AD) Unsubscribe
+		c.Send(conn.NewDetachedMessage())
 	case conn.TypePublish:
 		topic := c.broker.GetTopic(m.Publish.Topic)
 		topic.Publish(m.Publish.Payload)

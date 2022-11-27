@@ -117,8 +117,22 @@ Such as a `ATTACHED` message would have format:
   * `topic` (string)
   * `serial` (string)
 
-**PUBLISH**
+**DETACH**
 * Type: `3`
+* Name: `detach`
+* Direction: Client -> Server
+* Fields
+  * `topic` (string)
+
+**DETACHED**
+* Type: `4`
+* Name: `detached`
+* Direction: Server -> Client
+* Fields
+  * `topic` (string)
+
+**PUBLISH**
+* Type: `4`
 * Name: `publish`
 * Direction: Client -> Server
 * Fields
@@ -127,14 +141,14 @@ Such as a `ATTACHED` message would have format:
   * `sequence_number` (uint32)
 
 **ACK**
-* Type: `4`
+* Type: `5`
 * Name: `ack`
 * Direction: Server -> Client
 * Fields
   * `sequence_number` (uint32)
 
 **PAYLOAD**
-* Type: `5`
+* Type: `7`
 * Name: `payload`
 * Direction: Server -> Client
 * Fields
@@ -143,14 +157,14 @@ Such as a `ATTACHED` message would have format:
   * `message` (uint8[])
 
 **PING**
-* Type: `6`
+* Type: `8`
 * Name: `ping`
 * Direction: Client -> Server
 * Fields
   * `timestamp` (uint64)
 
 **PONG**
-* Type: `7`
+* Type: `9`
 * Name: `pong`
 * Direction: Server -> Client
 * Fields

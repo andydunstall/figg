@@ -35,34 +35,46 @@ func NewFigg(config *Config) (*Figg, error) {
 	}
 
 	figg.wg.Add(1)
-	go figg.eventLoop()
+	go figg.pingLoop()
 
 	return figg, nil
 }
 
+// Publishes publishes the message on the given topic.
+//
+// This doesn't not wait for the publish to be acknowledged. Similar to TCP,
+// Figg guarantees messages are published from the client in order and will
+// reconnect/retry if the publish fails, though delivery cannot be guaranteed
+// (if the client cannot reconnect).
 func (w *Figg) Publish(topic string, m []byte) {
+	// Publish messages must be acknowledged so add a sequence number and queue.
 	seqNum := w.seqNum
 	w.seqNum++
-
 	message := NewPublishMessage(topic, seqNum, m)
 	w.pendingMessages.Push(message, seqNum)
 
-	// Ignore errors. If we fail to send we'll retry on reconnect.
+	// Ignore errors. If we fail to send we'll retry.
 	w.client.Send(message)
 }
 
+// Subscribe to the given topic.
 func (w *Figg) Subscribe(topic string, cb MessageHandler) *MessageSubscriber {
 	sub, activated := w.topics.Subscribe(topic, cb)
 	if activated {
-		// Note if we arn't connected this won't send an attach, but once
-		// we become suspended we attach to all subscribed channels.
+		// Ignore errors. If we arn't connected so the send fails, when we
+		// reconnect all subscribed topics are reattached.
 		w.client.Send(NewAttachMessage(topic))
 	}
 	return sub
 }
 
+// Unsubscribe from the given topic.
 func (w *Figg) Unsubscribe(topic string, sub *MessageSubscriber) {
-	w.topics.Unsubscribe(topic, sub)
+	if w.topics.Unsubscribe(topic, sub) {
+		// Ignore errors. If we arn't connected so the send fails, when we
+		// reconnect this topic won't be reattached.
+		w.client.Send(NewDetachMessage(topic))
+	}
 }
 
 func (w *Figg) Shutdown() error {
@@ -102,7 +114,7 @@ func newFigg(config *Config) (*Figg, error) {
 	return figg, nil
 }
 
-func (w *Figg) eventLoop() {
+func (w *Figg) pingLoop() {
 	defer w.wg.Done()
 
 	pingTicker := time.NewTicker(w.pingInterval)
@@ -158,11 +170,14 @@ func (w *Figg) onConnected() {
 	// Reattach all subscribed topics.
 	for _, topic := range w.topics.Topics() {
 		w.logger.Debug("reattaching", zap.String("topic", topic))
+		// Ignore errors. If we arn't connected so the send fails, when we
+		// reconnect all subscribed topics are reattached.
 		w.client.Send(NewAttachMessageWithOffset(topic, w.topics.Offset(topic)))
 	}
 
 	// Send all unacknowledged messages.
 	for _, m := range w.pendingMessages.Messages() {
+		// Ignore errors. If we fail to send we'll retry.
 		w.client.Send(m)
 	}
 }
@@ -171,6 +186,6 @@ func (w *Figg) ping() {
 	timestamp := time.Now()
 	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
 	m := NewPingMessage(timestamp.UnixMilli())
-	// Ignore any errors. If we're not connected we can't send a ping.
+	// Ignore any errors. If we can't send a ping we'll reconnect anyway.
 	w.client.Send(m)
 }
