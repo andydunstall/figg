@@ -65,6 +65,13 @@ func (t *Topic) Publish(b []byte) {
 	}
 }
 
+func (t *Topic) Subscribe(s *Subscription) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.subscribers[s] = struct{}{}
+}
+
 func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()

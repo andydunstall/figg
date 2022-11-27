@@ -44,7 +44,12 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, lastOffset u
 		lastOffset: lastOffset,
 		attachment: attachment,
 	}
-	go s.sendLoop()
+	// If we are not up to date with the topic run resume to send the backlog.
+	if lastOffset == topic.Offset() {
+		topic.Subscribe(s)
+	} else {
+		go s.resumeLoop()
+	}
 	return s
 }
 
@@ -66,7 +71,9 @@ func (s *Subscription) Shutdown() {
 	atomic.StoreInt32(&s.shutdown, 1)
 }
 
-func (s *Subscription) sendLoop() {
+// resumeLoop iterates though the topics history until the subscriber is up
+// to date, then registers for new messages.
+func (s *Subscription) resumeLoop() {
 	for {
 		if s := atomic.LoadInt32(&s.shutdown); s != 0 {
 			return

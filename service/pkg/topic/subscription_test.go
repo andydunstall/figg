@@ -12,7 +12,7 @@ type fakeAttachment struct {
 
 func newFakeAttachment() *fakeAttachment {
 	return &fakeAttachment{
-		Ch: make(chan TopicMessage),
+		Ch: make(chan TopicMessage, 64),
 	}
 }
 
