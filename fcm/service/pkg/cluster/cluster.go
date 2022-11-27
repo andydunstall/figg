@@ -10,7 +10,7 @@ import (
 
 type Cluster struct {
 	ID              string
-	nodes           map[string]*Node
+	Nodes           map[string]*Node
 	portAllocator   *PortAllocator
 	toxiproxyClient *toxiproxy.Client
 
@@ -19,23 +19,20 @@ type Cluster struct {
 	mu sync.Mutex
 }
 
-func NewCluster(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, logger *zap.Logger) *Cluster {
-	return &Cluster{
+func NewCluster(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, logger *zap.Logger) (*Cluster, error) {
+	cluster := &Cluster{
 		ID:              uuid.New().String(),
-		nodes:           make(map[string]*Node),
+		Nodes:           make(map[string]*Node),
 		portAllocator:   portAllocator,
 		toxiproxyClient: toxiproxyClient,
 		logger:          logger,
 		mu:              sync.Mutex{},
 	}
-}
-
-func (c *Cluster) GetNode(id string) (*Node, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	node, ok := c.nodes[id]
-	return node, ok
+	_, err := cluster.AddNode()
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
 }
 
 func (c *Cluster) AddNode() (*Node, error) {
@@ -46,7 +43,7 @@ func (c *Cluster) AddNode() (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.nodes[node.ID] = node
+	c.Nodes[node.ID] = node
 
 	c.logger.Debug(
 		"node added",
@@ -58,35 +55,11 @@ func (c *Cluster) AddNode() (*Node, error) {
 	return node, nil
 }
 
-func (c *Cluster) RemoveNode(id string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	node, ok := c.nodes[id]
-	if !ok {
-		// If not found do nothing.
-		return nil
-	}
-
-	if err := node.Shutdown(); err != nil {
-		return err
-	}
-	delete(c.nodes, id)
-
-	c.logger.Debug(
-		"node removed",
-		zap.String("cluster-id", c.ID),
-		zap.String("node-id", node.ID),
-	)
-
-	return nil
-}
-
 func (c *Cluster) Shutdown() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, node := range c.nodes {
+	for _, node := range c.Nodes {
 		if err := node.Shutdown(); err != nil {
 			c.logger.Warn("failed to shutdown node", zap.String("node-id", node.ID), zap.Error(err))
 		}

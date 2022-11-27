@@ -1,9 +1,10 @@
 package main
 
 import (
+	"net"
+
 	"github.com/andydunstall/figg/fcm/service/pkg/server"
 	"go.uber.org/zap"
-	"net"
 )
 
 const (

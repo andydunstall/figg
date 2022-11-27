@@ -12,17 +12,16 @@ import (
 )
 
 func TestTopic_PublishSubscribe(t *testing.T) {
-	cluster, err := fcm.NewCluster()
-	assert.Nil(t, err)
-	defer cluster.Shutdown()
+	fcmClient := fcm.NewFCM()
 
-	node, err := cluster.AddNode()
+	cluster, err := fcmClient.AddCluster()
 	assert.Nil(t, err)
+	defer fcmClient.RemoveCluster(cluster.ID)
 
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:   node.ProxyAddr,
+		Addr:   cluster.Nodes[0].ProxyAddr,
 		Logger: logger,
 	})
 	assert.Nil(t, err)
@@ -40,12 +39,11 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 
 // Tests a subscriber recovers lost messages after a disconnect.
 func TestTopic_ResumeAfterDisconnect(t *testing.T) {
-	cluster, err := fcm.NewCluster()
-	assert.Nil(t, err)
-	defer cluster.Shutdown()
+	fcmClient := fcm.NewFCM()
 
-	node, err := cluster.AddNode()
+	cluster, err := fcmClient.AddCluster()
 	assert.Nil(t, err)
+	defer fcmClient.RemoveCluster(cluster.ID)
 
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
@@ -53,14 +51,14 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	// Connect the publisher without the proxy as we can disconnect the
 	// subscriber but not the publisher.
 	publisherClient, err := figg.NewFigg(&figg.Config{
-		Addr:   node.Addr,
+		Addr:   cluster.Nodes[0].Addr,
 		Logger: logger,
 	})
 	assert.Nil(t, err)
 	defer publisherClient.Shutdown()
 
 	subscriberClient, err := figg.NewFigg(&figg.Config{
-		Addr:   node.ProxyAddr,
+		Addr:   cluster.Nodes[0].ProxyAddr,
 		Logger: logger,
 	})
 	assert.Nil(t, err)
@@ -80,11 +78,9 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 
 	// Disable the networking for the subscriber and reenable after 5 seconds.
 	// While disconnected publish 3 messages.
-	assert.Nil(t, node.Disable())
-	go func() {
-		<-time.After(3 * time.Second)
-		assert.Nil(t, node.Enable())
-	}()
+	fcmClient.AddChaosPartition(cluster.Nodes[0].ID, fcm.ChaosConfig{
+		Duration: 5,
+	})
 
 	for i := 0; i < 5; i++ {
 		publisherClient.Publish("foo", []byte(fmt.Sprintf("msg-%d", i)))

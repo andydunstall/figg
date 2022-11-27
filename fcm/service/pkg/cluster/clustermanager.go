@@ -15,6 +15,7 @@ const (
 
 type ClusterManager struct {
 	clusters        map[string]*Cluster
+	nodes           map[string]*Node
 	portAllocator   *PortAllocator
 	toxiproxyClient *toxiproxy.Client
 
@@ -26,6 +27,7 @@ type ClusterManager struct {
 func NewClusterManager(logger *zap.Logger) *ClusterManager {
 	return &ClusterManager{
 		clusters:        make(map[string]*Cluster),
+		nodes:           make(map[string]*Node),
 		portAllocator:   NewPortAllocator(PortRangeFrom, PortRangeTo),
 		toxiproxyClient: toxiproxy.NewClient("localhost:8474"),
 		mu:              sync.Mutex{},
@@ -41,16 +43,31 @@ func (m *ClusterManager) Get(id string) (*Cluster, bool) {
 	return cluster, ok
 }
 
-func (m *ClusterManager) Add() *Cluster {
+func (m *ClusterManager) GetNode(id string) (*Node, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	cluster := NewCluster(m.portAllocator, m.toxiproxyClient, m.logger)
+	node, ok := m.nodes[id]
+	return node, ok
+}
+
+func (m *ClusterManager) Add() (*Cluster, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cluster, err := NewCluster(m.portAllocator, m.toxiproxyClient, m.logger)
+	if err != nil {
+		return nil, err
+	}
+
 	m.clusters[cluster.ID] = cluster
+	for _, node := range cluster.Nodes {
+		m.nodes[node.ID] = node
+	}
 
 	m.logger.Info("added cluster", zap.String("cluster-id", cluster.ID))
 
-	return cluster
+	return cluster, nil
 }
 
 func (m *ClusterManager) Remove(id string) {

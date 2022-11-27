@@ -21,17 +21,16 @@ func waitForStateWithTimeout(stateSubscriber *figg.ChannelStateSubscriber, timeo
 
 // Tests the SDK connects when figg is reachable.
 func TestConnection_Connect(t *testing.T) {
-	cluster, err := fcm.NewCluster()
-	assert.Nil(t, err)
-	defer cluster.Shutdown()
+	fcmClient := fcm.NewFCM()
 
-	node, err := cluster.AddNode()
+	cluster, err := fcmClient.AddCluster()
 	assert.Nil(t, err)
+	defer fcmClient.RemoveCluster(cluster.ID)
 
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.ProxyAddr,
+		Addr:            cluster.Nodes[0].ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -46,24 +45,21 @@ func TestConnection_Connect(t *testing.T) {
 // Tests if figg is unreachable when the SDK initally tries to connect, it
 // retries and succeeds once figg is reachable.
 func TestConnection_ConnectOnceReachable(t *testing.T) {
-	cluster, err := fcm.NewCluster()
-	assert.Nil(t, err)
-	defer cluster.Shutdown()
+	fcmClient := fcm.NewFCM()
 
-	node, err := cluster.AddNode()
+	cluster, err := fcmClient.AddCluster()
 	assert.Nil(t, err)
+	defer fcmClient.RemoveCluster(cluster.ID)
 
 	// Disable the networking for the node and reenable after 5 seconds.
-	assert.Nil(t, node.Disable())
-	go func() {
-		<-time.After(5 * time.Second)
-		assert.Nil(t, node.Enable())
-	}()
+	fcmClient.AddChaosPartition(cluster.Nodes[0].ID, fcm.ChaosConfig{
+		Duration: 5,
+	})
 
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.ProxyAddr,
+		Addr:            cluster.Nodes[0].ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -78,17 +74,16 @@ func TestConnection_ConnectOnceReachable(t *testing.T) {
 // Tests if the connection to figg is disconnected the SDK detects the
 // disconnection and tries to reconnect.
 func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
-	cluster, err := fcm.NewCluster()
-	assert.Nil(t, err)
-	defer cluster.Shutdown()
+	fcmClient := fcm.NewFCM()
 
-	node, err := cluster.AddNode()
+	cluster, err := fcmClient.AddCluster()
 	assert.Nil(t, err)
+	defer fcmClient.RemoveCluster(cluster.ID)
 
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            node.ProxyAddr,
+		Addr:            cluster.Nodes[0].Addr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -99,12 +94,10 @@ func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, figg.StateConnected, evt)
 
-	// Disable the networking for the node and reenable after 1 second.
-	assert.Nil(t, node.Disable())
-	go func() {
-		<-time.After(1 * time.Second)
-		assert.Nil(t, node.Enable())
-	}()
+	// Disable the networking for the node and reenable after 3 second.
+	fcmClient.AddChaosPartition(cluster.Nodes[0].ID, fcm.ChaosConfig{
+		Duration: 3,
+	})
 
 	evt, ok = waitForStateWithTimeout(stateSubscriber, 5*time.Second)
 	assert.True(t, ok)

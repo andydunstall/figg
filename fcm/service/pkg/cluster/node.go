@@ -78,19 +78,32 @@ func (n *Node) Disable() error {
 	return nil
 }
 
-func (n *Node) AddLatency(d time.Duration) (string, error) {
-	id := uuid.New().String()
-	_, err := n.proxy.AddToxic(id, "latency", "downstream", 1.0, toxiproxy.Attributes{
-		"latency": d.Milliseconds(),
-	})
-	if err != nil {
-		return "", err
+func (n *Node) Partition(duration int, repeat int) {
+	fmt.Println("partition", duration, repeat)
+
+	n.PartitionFor(duration)
+	if repeat != 0 {
+		go func() {
+			ticker := time.NewTicker(time.Second * time.Duration(repeat))
+			for {
+				select {
+				case <-ticker.C:
+					n.PartitionFor(duration)
+				}
+			}
+		}()
 	}
-	return id, nil
 }
 
-func (n *Node) RemoveScenario(id string) error {
-	return n.proxy.RemoveToxic(id)
+func (n *Node) PartitionFor(duration int) {
+	fmt.Println("partition for", duration)
+	n.Disable()
+	if duration != 0 {
+		go func() {
+			<-time.After(time.Duration(duration) * time.Second)
+			n.Enable()
+		}()
+	}
 }
 
 func (n *Node) Shutdown() error {
