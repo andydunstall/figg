@@ -13,11 +13,21 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 	topic.Publish([]byte("bar"))
 	topic.Publish([]byte("car"))
 
-	assert.Equal(t, uint64(3), topic.Offset())
-	b, offset, ok := topic.GetMessage(topic.Offset())
-	assert.Equal(t, string(b), "car")
-	assert.Equal(t, uint64(3), offset)
+	b, offset, ok := topic.GetMessage(0)
 	assert.True(t, ok)
+	assert.Equal(t, []byte("foo"), b)
+
+	b, offset, ok = topic.GetMessage(offset)
+	assert.True(t, ok)
+	assert.Equal(t, []byte("bar"), b)
+
+	b, offset, ok = topic.GetMessage(offset)
+	assert.True(t, ok)
+	assert.Equal(t, []byte("car"), b)
+
+	_, _, ok = topic.GetMessage(offset)
+	assert.False(t, ok)
+
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
@@ -25,11 +35,9 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 
 	topic.Publish([]byte("foo"))
 
-	assert.Equal(t, uint64(1), topic.Offset())
-	b, offset, ok := topic.GetMessage(topic.Offset())
-	assert.Equal(t, string(b), "foo")
-	assert.Equal(t, uint64(1), offset)
+	b, _, ok := topic.GetMessage(0)
 	assert.True(t, ok)
+	assert.Equal(t, []byte("foo"), b)
 }
 
 func TestTopic_GetInitialMessage(t *testing.T) {

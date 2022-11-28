@@ -3,6 +3,8 @@ package topic
 import (
 	"strconv"
 	"sync"
+
+	"github.com/andydunstall/figg/service/pkg/commitlog"
 )
 
 type Topic struct {
@@ -13,8 +15,7 @@ type Topic struct {
 	// unsubscribing becomes O(n) though unsubscribes should be rare and
 	// expecting the number of subscribers to be relatively smallk
 	subscribers []*Subscription
-	messages    map[uint64][]byte
-	offset      uint64
+	segment     *commitlog.Segment
 	mu          sync.Mutex
 }
 
@@ -22,8 +23,7 @@ func NewTopic(name string) *Topic {
 	return &Topic{
 		name:        name,
 		subscribers: []*Subscription{},
-		messages:    map[uint64][]byte{},
-		offset:      0,
+		segment:     commitlog.NewSegment(),
 		mu:          sync.Mutex{},
 	}
 }
@@ -34,36 +34,25 @@ func (t *Topic) Name() string {
 
 // Offset returns the offset of the last message processed.
 func (t *Topic) Offset() uint64 {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.offset
+	// No need to lock as segment is thread safe.
+	return t.segment.Size()
 }
 
 // GetMessage returns the message with the given offset. If the offset is
 // less than the earliest message, will round up to the next message.
 func (t *Topic) GetMessage(offset uint64) ([]byte, uint64, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if offset > t.offset {
-		return nil, 0, false
-	}
-	m, ok := t.messages[offset]
-	if !ok {
-		return nil, 0, false
-	}
-	return m, offset, true
+	// No need to lock as segment is thread safe.
+	return t.segment.Lookup(offset)
 }
 
 func (t *Topic) Publish(b []byte) {
+	// No need to lock as segment is thread safe.
+	offset := t.segment.Append(b)
+	serial := strconv.FormatUint(offset, 10)
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.offset += 1
-	t.messages[t.offset] = b
-
-	serial := strconv.FormatUint(t.offset, 10)
 	// Notify all subscribers to wake up and send the latest message.
 	for _, sub := range t.subscribers {
 		sub.Notify(t.name, serial, b)
@@ -78,12 +67,13 @@ func (t *Topic) Subscribe(s *Subscription) {
 }
 
 func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if offset != t.offset {
+	// No need to lock as segment is thread safe.
+	if offset != t.segment.Size() {
 		return false
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	t.subscribers = append(t.subscribers, s)
 	return true

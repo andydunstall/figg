@@ -18,9 +18,9 @@ type TopicMessage struct {
 // Subscription reads messages from the topic and sends to the connection.
 type Subscription struct {
 	topic *Topic
-	// lastOffset is the offset of the last processed message in the topic.
+	// offset is the offset of the next message to fetch in the topic.
 	// This is only set if the subscriber is resuming.
-	lastOffset uint64
+	offset uint64
 
 	attachment Attachment
 
@@ -38,14 +38,14 @@ func NewSubscription(attachment Attachment, topic *Topic) *Subscription {
 // at the next message after the given offset. If the offset is less than the
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
-func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, lastOffset uint64) *Subscription {
+func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint64) *Subscription {
 	s := &Subscription{
 		topic:      topic,
-		lastOffset: lastOffset,
+		offset:     offset,
 		attachment: attachment,
 	}
 	// If we are not up to date with the topic run resume to send the backlog.
-	if lastOffset == topic.Offset() {
+	if offset == topic.Offset() {
 		topic.Subscribe(s)
 	} else {
 		go s.resumeLoop()
@@ -79,14 +79,14 @@ func (s *Subscription) resumeLoop() {
 			return
 		}
 
-		// Note if there is no message with offset s.lastOffset+1, will
-		// round up to the earliest message on the topic.
-		m, offset, ok := s.topic.GetMessage(s.lastOffset + 1)
+		// Note if there is no message with offset, will round up to the
+		// earliest message on the topic.
+		m, offset, ok := s.topic.GetMessage(s.offset)
 		if !ok {
 			// If we are up to date, register with the topic for the latest
 			// messages. Note checking if we are up to date and registering
 			// must be atomic to avoid missing messages.
-			if s.topic.SubscribeIfLatest(s.lastOffset, s) {
+			if s.topic.SubscribeIfLatest(offset, s) {
 				return
 			}
 			// If theres been a new message since we last checked just try
@@ -99,6 +99,6 @@ func (s *Subscription) resumeLoop() {
 			Message: m,
 			Offset:  strconv.FormatUint(offset, 10),
 		})
-		s.lastOffset = offset
+		s.offset = offset
 	}
 }
