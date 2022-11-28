@@ -1,9 +1,6 @@
 # Client Protocol
 This describes how the Figg SDK interacts with the backend.
 
-**Note** This is a work on progress. Need to review properly to ensure theres
-no possiblility of message loss due to transient failures.
-
 ## Transports
 WebSocket is the only supported transport. This was chosen as it is TCP based
 and works in a browser.
@@ -77,39 +74,46 @@ server). The client detects whether we have missed messages when the serial
 in the `ATTACHED` response doesn't match the serial it requested in `ATTACH`.
 
 ## Protocol
-The Figg protocol uses msgpack to encode all messages. Each protocol message
-has a `uint16` type and format:
+The Figg protocol uses a custom binary protocol to encode all messages. Note
+started with msgpack though profiling found this to be too slow.
+
+### Header
+Each message has a header containing:
+* `uint16` message type, used for routing the message to the appropriate
+handler,
+* `uint32` data size used for framing when running over TCP, which is currently
+not needed given only WebSockets are supported as a transport but adding to
+support TCP in the future
 ```
-{
-  type: <type: uint16>,
-  <name: string>: {
-    (fields)
-  }
-}
+0                   1                   2                   3   
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         Message Type          |           Reserved            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Payload Size                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-Such as a `ATTACHED` message would have format:
-```
-{
-  type: 2,
-  attached: {
-    topic: <topic: string>,
-    message: <message: uint8[]>,
-    sequence_number: <sequence_number: uint32>,
-  }
-}
-```
+### Data Types
+Encoding for the supported data types:
+
+#### Strings
+Strings are used for metadata like topic names and serials so should be
+fairly small, so are prefixed with a `uint16` length.
+
+#### Bytes
+Byte arrays contain the channel messages so could be fairly large, so are
+prefixed with a `uint32` length.
 
 ### Types
-**ATTACH**
-* Type: `1`
-* Name: `attach`
+#### ATTACH
+* Message type: `1`
 * Direction: Client -> Server
 * Fields
   * `topic` (string)
   * `serial` (string)
 
-**ATTACHED**
+#### ATTACHED
 * Type: `2`
 * Name: `attached`
 * Direction: Server -> Client
@@ -117,21 +121,21 @@ Such as a `ATTACHED` message would have format:
   * `topic` (string)
   * `serial` (string)
 
-**DETACH**
+#### DETACH
 * Type: `3`
 * Name: `detach`
 * Direction: Client -> Server
 * Fields
   * `topic` (string)
 
-**DETACHED**
+#### DETACHED
 * Type: `4`
 * Name: `detached`
 * Direction: Server -> Client
 * Fields
   * `topic` (string)
 
-**PUBLISH**
+#### PUBLISH
 * Type: `4`
 * Name: `publish`
 * Direction: Client -> Server
@@ -140,14 +144,14 @@ Such as a `ATTACHED` message would have format:
   * `message` (uint8[])
   * `sequence_number` (uint32)
 
-**ACK**
+#### ACK
 * Type: `5`
 * Name: `ack`
 * Direction: Server -> Client
 * Fields
   * `sequence_number` (uint32)
 
-**PAYLOAD**
+#### PAYLOAD
 * Type: `7`
 * Name: `payload`
 * Direction: Server -> Client
@@ -156,14 +160,14 @@ Such as a `ATTACHED` message would have format:
   * `serial` (string)
   * `message` (uint8[])
 
-**PING**
+#### PING
 * Type: `8`
 * Name: `ping`
 * Direction: Client -> Server
 * Fields
   * `timestamp` (uint64)
 
-**PONG**
+#### PONG
 * Type: `9`
 * Name: `pong`
 * Direction: Server -> Client
