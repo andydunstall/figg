@@ -35,7 +35,7 @@ func (t *Topic) Name() string {
 // Offset returns the offset of the last message processed.
 func (t *Topic) Offset() uint64 {
 	// No need to lock as segment is thread safe.
-	return t.segment.Size()
+	return t.segment.Offset()
 }
 
 // GetMessage returns the message with the given offset. If the offset is
@@ -68,7 +68,7 @@ func (t *Topic) Subscribe(s *Subscription) {
 
 func (t *Topic) SubscribeIfLatest(offset uint64, s *Subscription) bool {
 	// No need to lock as segment is thread safe.
-	if offset != t.segment.Size() {
+	if offset != t.segment.Offset() {
 		return false
 	}
 

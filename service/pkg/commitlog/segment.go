@@ -17,7 +17,7 @@ func NewSegment() *Segment {
 	}
 }
 
-func (s *Segment) Size() uint64 {
+func (s *Segment) Offset() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
