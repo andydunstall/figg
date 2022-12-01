@@ -1,6 +1,9 @@
 # Client Protocol
 This describes how the Figg SDK interacts with the backend.
 
+**WIP: This describes a custom binary protocol though Figg currently still uses
+less efficient msgpack encoded messages**
+
 ## Transports
 WebSocket is the only supported transport. This was chosen as it is TCP based
 and works in a browser.
