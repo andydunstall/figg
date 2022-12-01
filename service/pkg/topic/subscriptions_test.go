@@ -47,44 +47,77 @@ func benchmarkTopicPublish(topicName string, publishes int, subscribers int, mes
 	<-attachment.DoneCh
 }
 
-func BenchmarkTopic_Pub100_Sub1_M10(b *testing.B) {
+func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
+	broker := NewBroker()
+
+	message := make([]byte, messageLen)
+	rand.Read(message)
+
+	attachment := newNopAttachment(publishes)
+
+	topic := broker.GetTopic(topicName)
+	for i := 0; i != publishes; i++ {
+		topic.Publish(message)
+	}
+
+	subscriptions := NewSubscriptions(broker, attachment)
+	subscriptions.AddSubscriptionFromOffset(topicName, 0)
+
+	<-attachment.DoneCh
+}
+
+func BenchmarkTopicPublish_Pub100_Sub1_M10(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 100, 1, 10)
 	}
 }
 
-func BenchmarkTopic_Pub100_Sub1000_M10(b *testing.B) {
+func BenchmarkTopicPublish_Pub100_Sub1000_M10(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 100, 1000, 10)
 	}
 }
 
-func BenchmarkTopic_Pub1000_Sub1_M10(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1_M10(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 1000, 1, 10)
 	}
 }
 
-func BenchmarkTopic_Pub1000_Sub1000_M10(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1000_M10(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 1000, 1000, 10)
 	}
 }
 
-func BenchmarkTopic_Pub1000_Sub1_M256KB(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1_M256KB(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 1000, 1, 256000)
 	}
 }
 
-func BenchmarkTopic_Pub1000_Sub1000_M256KB(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1000_M256KB(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
 		benchmarkTopicPublish(topicName, 1000, 1000, 256000)
+	}
+}
+
+func BenchmarkTopicResume_Pub100_M10(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		topicName := fmt.Sprintf("bench-topic-%d", n)
+		benchmarkTopicResume(topicName, 100, 10)
+	}
+}
+
+func BenchmarkTopicResume_Pub1000_M256KB(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		topicName := fmt.Sprintf("bench-topic-%d", n)
+		benchmarkTopicResume(topicName, 1000, 256000)
 	}
 }
