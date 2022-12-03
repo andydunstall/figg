@@ -8,11 +8,13 @@ systems performance.
 * Resume: Subscribers can resume from an old offset (either to fetch history
 or ensure message continuity across connection drops),
 * Message retention: Messages are persisted to a commit log so subscribers can
-resume from an old offset
+resume from an old offset.
 
 **Limitations**
 * Only runs on a single node, so theres no faults tolerance or horizonal
-scaling
+scaling,
+* Many areas are still WIP. The basic service and resume works other areas
+(especially in the SDK) still need work.
 
 ## Components
 * [`service/`](./service): Backend Figg service,
@@ -20,7 +22,43 @@ scaling
 * [`cli/`](./cli): Figg CLI,
 * [`docs/`](./docs): Documentation on usage and architecture,
 * [`tests/`](./tests): System tests,
-* [`fcm/`](./fcm): Figg cluster manager.
+* [`fcm/`](./fcm): Figg cluster manager, used for system tests and chaos testing.
+
+## Usage
+### Service
+The [`Figg service`](./service) can be started with `./bin/figg.sh`, or compile
+the package in [`./service`](./service) with `go build ./...`. For now all
+configuration is passed via the command line.
+
+### SDK
+See [`sdk/`](./sdk) for full usage.
+
+#### Connect
+Connects to a figg node.
+
+```go
+config := &Config{
+	Addr: "mynode",
+}
+client := figg.NewFigg(config)
+```
+
+#### Publish
+Publishes a message to topic `foo`.
+
+```go
+client.Publish("foo", []byte("bar"))
+```
+
+#### Subscribe
+Subscribes to topic `foo`.
+
+```go
+sub := client.Subscribe("foo", func(topic string, m []byte) {
+  fmt.Println("received message", string(m))
+})
+defer client.Unsubscribe("foo", sub)
+```
 
 ## Testing
 The service and SDK aims for high unit test coverage where possible which are

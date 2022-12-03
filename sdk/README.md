@@ -2,13 +2,12 @@
 
 ## Usage
 
-**Connect**
-Connects to a figg cluster. `Addr` is expected to be a load balancer that
-distributes connections evenly among figg nodes in the nearest region.
+### Connect
+Connects to a figg node.
 
 ```go
 config := &Config{
-	Addr: "my-figg-lb.com",
+	Addr: "mynode",
 }
 client := figg.NewFigg(config)
 ```
@@ -17,9 +16,7 @@ client := figg.NewFigg(config)
 Publishes a message to topic `foo`.
 
 ```go
-if err := client.Publish("foo", []byte("bar")); err != nil {
-	// ...
-}
+client.Publish("foo", []byte("bar"))
 ```
 
 ### Subscribe
@@ -29,6 +26,5 @@ Subscribes to topic `foo`.
 sub := client.Subscribe("foo", func(topic string, m []byte) {
   fmt.Println("received message", string(m))
 })
-
-client.Unsubscribe("foo", sub)
+defer client.Unsubscribe("foo", sub)
 ```
