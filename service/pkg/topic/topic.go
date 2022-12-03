@@ -3,11 +3,11 @@ package topic
 import (
 	"errors"
 	"io"
+	"os"
 	"strconv"
 	"sync"
 
 	"github.com/andydunstall/figg/service/pkg/commitlog"
-	"github.com/google/uuid"
 )
 
 var (
@@ -36,10 +36,11 @@ type Topic struct {
 	offset      uint64
 }
 
-func NewTopic(name string) (*Topic, error) {
-	log, err := commitlog.NewFileCommitLog(
-		"/tmp/figg-commitlog-" + name + "-" + uuid.New().String(),
-	)
+func NewTopic(name string, dir string) (*Topic, error) {
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return nil, err
+	}
+	log, err := commitlog.NewFileCommitLog(dir + "/" + name + ".data")
 	if err != nil {
 		return nil, err
 	}

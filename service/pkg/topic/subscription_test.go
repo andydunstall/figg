@@ -3,6 +3,7 @@ package topic
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +22,7 @@ func (a *fakeAttachment) Send(m Message) {
 }
 
 func TestSubscription_SubscribeLatest(t *testing.T) {
-	topic, err := NewTopic("mytopic")
+	topic, err := NewTopic("mytopic", "data/"+uuid.New().String())
 	assert.Nil(t, err)
 	attachment := newFakeAttachment()
 	sub := NewSubscription(attachment, topic)
@@ -49,7 +50,7 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 }
 
 func TestSubscription_SubscribeRecover(t *testing.T) {
-	topic, err := NewTopic("mytopic")
+	topic, err := NewTopic("mytopic", "data/"+uuid.New().String())
 	assert.Nil(t, err)
 
 	// Publish 2 messages prior to subscribing.

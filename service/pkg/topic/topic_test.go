@@ -3,11 +3,12 @@ package topic
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTopic_PublishMultipleMessages(t *testing.T) {
-	topic, err := NewTopic("foo")
+	topic, err := NewTopic("foo", "data/"+uuid.New().String())
 	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
@@ -31,7 +32,7 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
-	topic, err := NewTopic("foo")
+	topic, err := NewTopic("foo", "data/"+uuid.New().String())
 	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
@@ -42,7 +43,7 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 }
 
 func TestTopic_GetInitialMessage(t *testing.T) {
-	topic, err := NewTopic("foo")
+	topic, err := NewTopic("foo", "data/"+uuid.New().String())
 	assert.Nil(t, err)
 
 	_, _, err = topic.GetMessage(topic.Offset())

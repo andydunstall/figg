@@ -7,13 +7,14 @@ import (
 
 	"github.com/andydunstall/figg/service/pkg/config"
 	"github.com/andydunstall/figg/service/pkg/server"
+	"github.com/andydunstall/figg/service/pkg/topic"
 	"go.uber.org/zap"
 )
 
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 	logger.Info("starting figg service", zap.String("addr", config.Addr))
 
-	server := server.NewServer(logger)
+	server := server.NewServer(topic.NewBroker(config.DataDir), logger)
 
 	lis, err := net.Listen("tcp", config.Addr)
 	if err != nil {

@@ -12,7 +12,10 @@ week),
 as when a client disconnects they can resume from the offset of the last message
 they received.
 
-Topics support messages of upto 256KB.
+Features:
+* Support messages of upto 256KB,
+* Persists messages in a commit log for each topic,
+* Assigns each message an offset in the commit log
 
 ## Commit Log
 The commit log stores all messages in an append only log. The design of the

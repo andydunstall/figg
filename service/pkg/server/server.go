@@ -21,7 +21,7 @@ type Server struct {
 	logger   *zap.Logger
 }
 
-func NewServer(logger *zap.Logger) *Server {
+func NewServer(broker *topic.Broker, logger *zap.Logger) *Server {
 	router := mux.NewRouter()
 
 	upgrader := websocket.Upgrader{
@@ -30,7 +30,7 @@ func NewServer(logger *zap.Logger) *Server {
 	}
 	s := &Server{
 		router:   router,
-		broker:   topic.NewBroker(),
+		broker:   broker,
 		upgrader: upgrader,
 		logger:   logger,
 	}

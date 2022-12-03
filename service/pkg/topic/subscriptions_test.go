@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 type nopAttachment struct {
@@ -28,7 +30,7 @@ func (a *nopAttachment) Send(m Message) {
 }
 
 func benchmarkTopicPublish(topicName string, publishes int, subscribers int, messageLen int) {
-	broker := NewBroker()
+	broker := NewBroker("data/" + uuid.New().String())
 
 	message := make([]byte, messageLen)
 	rand.Read(message)
@@ -51,7 +53,7 @@ func benchmarkTopicPublish(topicName string, publishes int, subscribers int, mes
 }
 
 func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
-	broker := NewBroker()
+	broker := NewBroker("data/" + uuid.New().String())
 
 	message := make([]byte, messageLen)
 	rand.Read(message)

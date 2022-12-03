@@ -6,14 +6,18 @@ import (
 
 // Broker manages the set of topics active on this node.
 type Broker struct {
+	// Mutex protecting the below fields.
+	mu sync.Mutex
+
 	topics map[string]*Topic
-	mu     sync.Mutex
+	dir    string
 }
 
-func NewBroker() *Broker {
+func NewBroker(dir string) *Broker {
 	return &Broker{
-		topics: map[string]*Topic{},
 		mu:     sync.Mutex{},
+		topics: map[string]*Topic{},
+		dir:    dir,
 	}
 }
 
@@ -26,7 +30,7 @@ func (b *Broker) GetTopic(name string) (*Topic, error) {
 	if topic, ok := b.topics[name]; ok {
 		return topic, nil
 	}
-	topic, err := NewTopic(name)
+	topic, err := NewTopic(name, b.dir)
 	if err != nil {
 		return nil, err
 	}
