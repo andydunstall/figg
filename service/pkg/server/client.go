@@ -18,7 +18,7 @@ func NewClientAttachment(client *Client) topic.Attachment {
 	}
 }
 
-func (a *ClientAttachment) Send(m topic.TopicMessage) {
+func (a *ClientAttachment) Send(m topic.Message) {
 	a.client.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
 }
 

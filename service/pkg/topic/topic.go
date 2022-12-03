@@ -14,6 +14,12 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
+type Message struct {
+	Topic   string
+	Message []byte
+	Offset  string
+}
+
 type Topic struct {
 	name string
 	log  commitlog.CommitLog

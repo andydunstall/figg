@@ -7,13 +7,7 @@ import (
 )
 
 type Attachment interface {
-	Send(m TopicMessage)
-}
-
-type TopicMessage struct {
-	Topic   string
-	Message []byte
-	Offset  string
+	Send(m Message)
 }
 
 // Subscription reads messages from the topic and sends to the connection.
@@ -56,7 +50,7 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint6
 
 // Notify notifys the subscriber about a new message.
 func (s *Subscription) Notify(name string, serial string, m []byte) {
-	s.attachment.Send(TopicMessage{
+	s.attachment.Send(Message{
 		Topic:   name,
 		Message: m,
 		Offset:  serial,
@@ -99,7 +93,7 @@ func (s *Subscription) resumeLoop() {
 			return
 		}
 
-		s.attachment.Send(TopicMessage{
+		s.attachment.Send(Message{
 			Topic:   s.topic.Name(),
 			Message: m,
 			Offset:  strconv.FormatUint(offset, 10),

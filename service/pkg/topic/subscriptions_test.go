@@ -20,7 +20,7 @@ func newNopAttachment(expected int) *nopAttachment {
 	}
 }
 
-func (a *nopAttachment) Send(m TopicMessage) {
+func (a *nopAttachment) Send(m Message) {
 	a.received++
 	if a.expected == a.received {
 		close(a.DoneCh)

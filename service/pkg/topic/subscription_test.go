@@ -7,16 +7,16 @@ import (
 )
 
 type fakeAttachment struct {
-	Ch chan TopicMessage
+	Ch chan Message
 }
 
 func newFakeAttachment() *fakeAttachment {
 	return &fakeAttachment{
-		Ch: make(chan TopicMessage, 64),
+		Ch: make(chan Message, 64),
 	}
 }
 
-func (a *fakeAttachment) Send(m TopicMessage) {
+func (a *fakeAttachment) Send(m Message) {
 	a.Ch <- m
 }
 
@@ -31,17 +31,17 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 	topic.Publish([]byte("bar"))
 	topic.Publish([]byte("car"))
 
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "7",
 		Message: []byte("foo"),
 	}, <-attachment.Ch)
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "14",
 		Message: []byte("bar"),
 	}, <-attachment.Ch)
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "21",
 		Message: []byte("car"),
@@ -64,22 +64,22 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 	topic.Publish([]byte("baz"))
 	topic.Publish([]byte("car"))
 
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "7",
 		Message: []byte("foo"),
 	}, <-attachment.Ch)
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "14",
 		Message: []byte("bar"),
 	}, <-attachment.Ch)
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "21",
 		Message: []byte("baz"),
 	}, <-attachment.Ch)
-	assert.Equal(t, TopicMessage{
+	assert.Equal(t, Message{
 		Topic:   "mytopic",
 		Offset:  "28",
 		Message: []byte("car"),
