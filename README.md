@@ -2,7 +2,8 @@
 Figg is a simple pub/sub messaging service. It only runs on a single node so
 theres no fault tolerance or horizonal scaling.
 
-*This is a work in progress project I'm just building for fun, not really intended to be used in production.*
+*This is a work in progress project I'm just building for fun and to practice Go
+and systems performance.*
 
 ## Components
 * [`service/`](./service): Backend Figg service,
