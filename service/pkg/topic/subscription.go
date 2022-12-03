@@ -81,8 +81,8 @@ func (s *Subscription) resumeLoop() {
 
 		// Note if there is no message with offset, will round up to the
 		// earliest message on the topic.
-		m, offset, ok := s.topic.GetMessage(s.offset)
-		if !ok {
+		m, offset, err := s.topic.GetMessage(s.offset)
+		if err == ErrNotFound {
 			// If we are up to date, register with the topic for the latest
 			// messages. Note checking if we are up to date and registering
 			// must be atomic to avoid missing messages.
@@ -92,6 +92,9 @@ func (s *Subscription) resumeLoop() {
 			// If theres been a new message since we last checked just try
 			// again.
 			continue
+		} else if err != nil {
+			// TODO(AD)
+			panic(err)
 		}
 
 		s.attachment.Send(TopicMessage{

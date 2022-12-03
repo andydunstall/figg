@@ -14,21 +14,20 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 	topic.Publish([]byte("bar"))
 	topic.Publish([]byte("car"))
 
-	b, offset, ok := topic.GetMessage(0)
-	assert.True(t, ok)
+	b, offset, err := topic.GetMessage(0)
+	assert.Nil(t, err)
 	assert.Equal(t, []byte("foo"), b)
 
-	b, offset, ok = topic.GetMessage(offset)
-	assert.True(t, ok)
+	b, offset, err = topic.GetMessage(offset)
+	assert.Nil(t, err)
 	assert.Equal(t, []byte("bar"), b)
 
-	b, offset, ok = topic.GetMessage(offset)
-	assert.True(t, ok)
+	b, offset, err = topic.GetMessage(offset)
+	assert.Nil(t, err)
 	assert.Equal(t, []byte("car"), b)
 
-	_, _, ok = topic.GetMessage(offset)
-	assert.False(t, ok)
-
+	_, _, err = topic.GetMessage(offset)
+	assert.Equal(t, ErrNotFound, err)
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
@@ -37,8 +36,8 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 
 	topic.Publish([]byte("foo"))
 
-	b, _, ok := topic.GetMessage(0)
-	assert.True(t, ok)
+	b, _, err := topic.GetMessage(0)
+	assert.Nil(t, err)
 	assert.Equal(t, []byte("foo"), b)
 }
 
@@ -46,12 +45,6 @@ func TestTopic_GetInitialMessage(t *testing.T) {
 	topic, err := NewTopic("foo")
 	assert.Nil(t, err)
 
-	_, _, ok := topic.GetMessage(topic.Offset())
-	assert.False(t, ok)
-}
-
-func TestTopic_GetInitialOffset(t *testing.T) {
-	topic, err := NewTopic("foo")
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(0), topic.Offset())
+	_, _, err = topic.GetMessage(topic.Offset())
+	assert.Equal(t, ErrNotFound, err)
 }

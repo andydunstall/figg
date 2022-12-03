@@ -33,17 +33,17 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "11",
+		Offset:  "7",
 		Message: []byte("foo"),
 	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "22",
+		Offset:  "14",
 		Message: []byte("bar"),
 	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "33",
+		Offset:  "21",
 		Message: []byte("car"),
 	}, <-attachment.Ch)
 }
@@ -66,22 +66,22 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "11",
+		Offset:  "7",
 		Message: []byte("foo"),
 	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "22",
+		Offset:  "14",
 		Message: []byte("bar"),
 	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "33",
+		Offset:  "21",
 		Message: []byte("baz"),
 	}, <-attachment.Ch)
 	assert.Equal(t, TopicMessage{
 		Topic:   "mytopic",
-		Offset:  "44",
+		Offset:  "28",
 		Message: []byte("car"),
 	}, <-attachment.Ch)
 }
