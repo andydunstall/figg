@@ -39,7 +39,10 @@ func benchmarkTopicPublish(topicName string, publishes int, subscribers int, mes
 		subscriptions.AddSubscription(topicName)
 	}
 
-	topic := broker.GetTopic(topicName)
+	topic, err := broker.GetTopic(topicName)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i != publishes; i++ {
 		topic.Publish(message)
 	}
@@ -55,7 +58,10 @@ func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
 
 	attachment := newNopAttachment(publishes)
 
-	topic := broker.GetTopic(topicName)
+	topic, err := broker.GetTopic(topicName)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i != publishes; i++ {
 		topic.Publish(message)
 	}

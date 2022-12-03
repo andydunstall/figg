@@ -129,7 +129,10 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 		// TODO(AD) Unsubscribe
 		c.Send(conn.NewDetachedMessage())
 	case conn.TypePublish:
-		topic := c.broker.GetTopic(m.Publish.Topic)
+		topic, err := c.broker.GetTopic(m.Publish.Topic)
+		if err != nil {
+			// TODO(AD)
+		}
 		topic.Publish(m.Publish.Payload)
 		c.Send(conn.NewACKMessage(m.Publish.SeqNum))
 	}

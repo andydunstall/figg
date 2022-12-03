@@ -21,7 +21,8 @@ func (a *fakeAttachment) Send(m TopicMessage) {
 }
 
 func TestSubscription_SubscribeLatest(t *testing.T) {
-	topic := NewTopic("mytopic")
+	topic, err := NewTopic("mytopic")
+	assert.Nil(t, err)
 	attachment := newFakeAttachment()
 	sub := NewSubscription(attachment, topic)
 	defer sub.Shutdown()
@@ -48,7 +49,8 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 }
 
 func TestSubscription_SubscribeRecover(t *testing.T) {
-	topic := NewTopic("mytopic")
+	topic, err := NewTopic("mytopic")
+	assert.Nil(t, err)
 
 	// Publish 2 messages prior to subscribing.
 	topic.Publish([]byte("foo"))

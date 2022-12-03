@@ -16,14 +16,17 @@ func NewBroker() *Broker {
 	}
 }
 
-func (b *Broker) GetTopic(name string) *Topic {
+func (b *Broker) GetTopic(name string) (*Topic, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if topic, ok := b.topics[name]; ok {
-		return topic
+		return topic, nil
 	}
-	topic := NewTopic(name)
+	topic, err := NewTopic(name)
+	if err != nil {
+		return nil, err
+	}
 	b.topics[name] = topic
-	return topic
+	return topic, nil
 }

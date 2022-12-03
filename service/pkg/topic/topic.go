@@ -19,13 +19,13 @@ type Topic struct {
 	mu          sync.Mutex
 }
 
-func NewTopic(name string) *Topic {
+func NewTopic(name string) (*Topic, error) {
 	return &Topic{
 		name:        name,
 		subscribers: []*Subscription{},
 		segment:     commitlog.NewSegment(),
 		mu:          sync.Mutex{},
-	}
+	}, nil
 }
 
 func (t *Topic) Name() string {
