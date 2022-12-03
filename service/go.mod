@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/andydunstall/scuttlebutt v0.0.0-20221028180859-55a7dfdb0cfd
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/jessevdk/go-flags v1.5.0
