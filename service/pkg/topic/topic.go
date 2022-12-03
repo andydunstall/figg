@@ -88,11 +88,15 @@ func (t *Topic) Publish(b []byte) error {
 	defer t.mu.Unlock()
 
 	t.offset += uint64(len(b) + 4)
-	serial := strconv.FormatUint(t.offset, 10)
 
 	// Notify all subscribers to wake up and send the latest message.
+	m := Message{
+		Topic:   t.name,
+		Message: b,
+		Offset:  strconv.FormatUint(t.offset, 10),
+	}
 	for _, sub := range t.subscribers {
-		sub.Notify(t.name, serial, b)
+		sub.Notify(m)
 	}
 
 	return nil

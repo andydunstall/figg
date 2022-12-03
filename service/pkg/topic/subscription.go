@@ -49,12 +49,8 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint6
 }
 
 // Notify notifys the subscriber about a new message.
-func (s *Subscription) Notify(name string, serial string, m []byte) {
-	s.attachment.Send(Message{
-		Topic:   name,
-		Message: m,
-		Offset:  serial,
-	})
+func (s *Subscription) Notify(m Message) {
+	s.attachment.Send(m)
 }
 
 // Shutdown unsubscribes and stops the send loop.
