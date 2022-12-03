@@ -1,9 +1,18 @@
 # Figg
-Figg is a simple pub/sub messaging service. It only runs on a single node so
-theres no fault tolerance or horizonal scaling.
+Figg is a simple pub/sub messaging service.
 
-*This is a work in progress project I'm just building for fun and to practice Go
-and systems performance.*
+**WIP**: This is only a projects I'm building for run, and to practice Go and
+systems performance.
+
+**Features**
+* Resume: Subscribers can resume from an old offset (either to fetch history
+or ensure message continuity across connection drops),
+* Message retention: Messages are persisted to a commit log so subscribers can
+resume from an old offset
+
+**Limitations**
+* Only runs on a single node, so theres no faults tolerance or horizonal
+scaling
 
 ## Components
 * [`service/`](./service): Backend Figg service,
