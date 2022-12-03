@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 )
@@ -93,8 +94,9 @@ func (s *Subscription) resumeLoop() {
 			// again.
 			continue
 		} else if err != nil {
-			// TODO(AD)
-			panic(err)
+			// TODO(AD) conn closed?
+			fmt.Println(err)
+			return
 		}
 
 		s.attachment.Send(TopicMessage{

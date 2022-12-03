@@ -3,30 +3,27 @@ package cluster
 import (
 	"sync"
 
-	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type Cluster struct {
-	ID              string
-	Nodes           map[string]*Node
-	portAllocator   *PortAllocator
-	toxiproxyClient *toxiproxy.Client
+	ID            string
+	Nodes         map[string]*Node
+	portAllocator *PortAllocator
 
 	logger *zap.Logger
 
 	mu sync.Mutex
 }
 
-func NewCluster(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, logger *zap.Logger) (*Cluster, error) {
+func NewCluster(portAllocator *PortAllocator, logger *zap.Logger) (*Cluster, error) {
 	cluster := &Cluster{
-		ID:              uuid.New().String(),
-		Nodes:           make(map[string]*Node),
-		portAllocator:   portAllocator,
-		toxiproxyClient: toxiproxyClient,
-		logger:          logger,
-		mu:              sync.Mutex{},
+		ID:            uuid.New().String()[:7],
+		Nodes:         make(map[string]*Node),
+		portAllocator: portAllocator,
+		logger:        logger,
+		mu:            sync.Mutex{},
 	}
 	_, err := cluster.AddNode()
 	if err != nil {
@@ -39,7 +36,7 @@ func (c *Cluster) AddNode() (*Node, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	node, err := NewNode(c.portAllocator, c.toxiproxyClient, c.logger)
+	node, err := NewNode(c.portAllocator, c.logger)
 	if err != nil {
 		return nil, err
 	}

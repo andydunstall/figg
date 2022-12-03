@@ -3,7 +3,6 @@ package cluster
 import (
 	"sync"
 
-	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	"go.uber.org/zap"
 )
 
@@ -14,10 +13,9 @@ const (
 )
 
 type ClusterManager struct {
-	clusters        map[string]*Cluster
-	nodes           map[string]*Node
-	portAllocator   *PortAllocator
-	toxiproxyClient *toxiproxy.Client
+	clusters      map[string]*Cluster
+	nodes         map[string]*Node
+	portAllocator *PortAllocator
 
 	mu sync.Mutex
 
@@ -26,12 +24,11 @@ type ClusterManager struct {
 
 func NewClusterManager(logger *zap.Logger) *ClusterManager {
 	return &ClusterManager{
-		clusters:        make(map[string]*Cluster),
-		nodes:           make(map[string]*Node),
-		portAllocator:   NewPortAllocator(PortRangeFrom, PortRangeTo),
-		toxiproxyClient: toxiproxy.NewClient("localhost:8474"),
-		mu:              sync.Mutex{},
-		logger:          logger,
+		clusters:      make(map[string]*Cluster),
+		nodes:         make(map[string]*Node),
+		portAllocator: NewPortAllocator(PortRangeFrom, PortRangeTo),
+		mu:            sync.Mutex{},
+		logger:        logger,
 	}
 }
 
@@ -55,7 +52,7 @@ func (m *ClusterManager) Add() (*Cluster, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	cluster, err := NewCluster(m.portAllocator, m.toxiproxyClient, m.logger)
+	cluster, err := NewCluster(m.portAllocator, m.logger)
 	if err != nil {
 		return nil, err
 	}

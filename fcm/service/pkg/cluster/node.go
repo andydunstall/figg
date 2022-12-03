@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
+	"github.com/andydunstall/figg/fcm/service/pkg/proxy"
 	"github.com/andydunstall/figg/service"
 	"github.com/andydunstall/figg/service/pkg/config"
 	"github.com/google/uuid"
@@ -16,21 +16,20 @@ type Node struct {
 	ID        string
 	Addr      string
 	ProxyAddr string
-	proxy     *toxiproxy.Proxy
+	proxy     *proxy.Proxy
 
 	logger *zap.Logger
 
 	doneCh chan interface{}
 }
 
-func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, logger *zap.Logger) (*Node, error) {
-	id := uuid.New().String()
+func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
+	id := uuid.New().String()[:7]
 
 	listenAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 	proxyAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
 
-	proxyID := fmt.Sprintf("figg_%s", id)
-	proxy, err := toxiproxyClient.CreateProxy(proxyID, proxyAddr, listenAddr)
+	proxy, err := proxy.NewProxy(proxyAddr, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -61,18 +60,27 @@ func NewNode(portAllocator *PortAllocator, toxiproxyClient *toxiproxy.Client, lo
 }
 
 func (n *Node) Enable() error {
-	if err := n.proxy.Enable(); err != nil {
-		n.logger.Error("failed to enable node", zap.String("node-id", n.ID), zap.Error(err))
+	if n.proxy != nil {
+		n.logger.Debug("node already enabled", zap.String("node-id", n.ID))
+		return nil
 	}
+
+	proxy, err := proxy.NewProxy(n.ProxyAddr, n.Addr)
+	if err != nil {
+		n.logger.Error("failed to enable node", zap.String("node-id", n.ID), zap.Error(err))
+		return err
+	}
+	n.proxy = proxy
 
 	n.logger.Debug("node enabled", zap.String("node-id", n.ID))
 	return nil
 }
 
 func (n *Node) Disable() error {
-	if err := n.proxy.Disable(); err != nil {
+	if err := n.proxy.Close(); err != nil {
 		n.logger.Error("failed to disable node", zap.String("node-id", n.ID), zap.Error(err))
 	}
+	n.proxy = nil
 
 	n.logger.Debug("node disabled", zap.String("node-id", n.ID))
 	return nil
@@ -107,7 +115,7 @@ func (n *Node) PartitionFor(duration int) {
 }
 
 func (n *Node) Shutdown() error {
-	if err := n.proxy.Delete(); err != nil {
+	if err := n.proxy.Close(); err != nil {
 		return err
 	}
 	close(n.doneCh)

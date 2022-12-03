@@ -49,9 +49,8 @@ and a subscriber at the proxy address, then inject faults into the subscribers
 connection.
 
 ### Chaos
-FCM adds a [toxiproxy](https://github.com/Shopify/toxiproxy) proxy for each
-node. This is used in inject faults into the nodes connections, when connected
-to the proxy address.
+FCM adds a proxy for each node. This is used in inject faults into the nodes
+connections, when connected to the proxy address.
 
 Each chaos command has options arguments:
 * `duration`: How long the fault should last in seconds (if not defined lasts
