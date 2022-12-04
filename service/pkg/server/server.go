@@ -8,8 +8,8 @@ import (
 
 	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
-	"github.com/gorilla/mux"
 	"github.com/fasthttp/websocket"
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 

@@ -57,6 +57,19 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	if config.MemoryProfile != "" {
+		logger.Info("started memory profile", zap.String("output", config.MemoryProfile))
+		defer func() {
+			f, err := os.Create(config.MemoryProfile)
+			if err != nil {
+				logger.Fatal("failed to open memory profile", zap.Error(err))
+				return
+			}
+			logger.Info("writing memory profile", zap.String("output", config.MemoryProfile))
+			pprof.WriteHeapProfile(f)
+		}()
+	}
+
 	doneCh := make(chan interface{})
 	go func() {
 		service.Run(config, logger, doneCh)
