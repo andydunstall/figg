@@ -9,7 +9,7 @@ import (
 	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
+	"github.com/fasthttp/websocket"
 	"go.uber.org/zap"
 )
 
