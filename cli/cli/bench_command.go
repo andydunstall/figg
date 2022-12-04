@@ -41,49 +41,59 @@ func (c *BenchCommand) CobraCommand() *cobra.Command {
 
 func (c *BenchCommand) run() error {
 	for i := 0; i != c.samples; i++ {
-		publisher, err := figg.NewFigg(&figg.Config{
-			Addr: c.Config.Addr,
-		})
-		if err != nil {
+		if err := c.sample(i); err != nil {
 			return err
 		}
-
-		subscriber, err := figg.NewFigg(&figg.Config{
-			Addr: c.Config.Addr,
-		})
-		if err != nil {
-			return err
-		}
-
-		<-time.After(time.Second)
-
-		// Wait to become connected and attached.
-		// TODO(AD) this should be an event (maybe Subscribe should block until
-		// received ATTACHED)
-
-		doneCh := make(chan interface{})
-
-		count := c.publishes
-		received := 0
-		subscriber.Subscribe("bench-topic", func(topic string, m []byte) {
-			received++
-			if received == count {
-				close(doneCh)
-			}
-		})
-
-		<-time.After(time.Second)
-
-		start := time.Now()
-
-		for i := 0; i != count; i++ {
-			publisher.Publish("bench-topic", []byte(fmt.Sprintf("message-%d", i)))
-		}
-
-		<-doneCh
-
-		elapsed := time.Since(start)
-		fmt.Println("elapsed", elapsed, "count", count)
 	}
+	return nil
+}
+
+func (c *BenchCommand) sample(i int) error {
+	publisher, err := figg.NewFigg(&figg.Config{
+		Addr: c.Config.Addr,
+	})
+	if err != nil {
+		return err
+	}
+	defer publisher.Shutdown()
+
+	subscriber, err := figg.NewFigg(&figg.Config{
+		Addr: c.Config.Addr,
+	})
+	if err != nil {
+		return err
+	}
+	defer subscriber.Shutdown()
+
+	<-time.After(time.Second)
+
+	// Wait to become connected and attached.
+	// TODO(AD) this should be an event (maybe Subscribe should block until
+	// received ATTACHED)
+
+	doneCh := make(chan interface{})
+
+	count := c.publishes
+	received := 0
+	subscriber.Subscribe("bench-topic", func(topic string, m []byte) {
+		received++
+		if received == count {
+			close(doneCh)
+		}
+	})
+
+	<-time.After(time.Second)
+
+	start := time.Now()
+
+	for i := 0; i != count; i++ {
+		publisher.Publish("bench-topic", []byte(fmt.Sprintf("message-%d", i)))
+	}
+
+	<-doneCh
+
+	elapsed := time.Since(start)
+	fmt.Println("elapsed", elapsed, "count", count)
+
 	return nil
 }
