@@ -1,17 +1,14 @@
 package topic
 
 import (
-	"errors"
-	"io"
-	"os"
 	"strconv"
 	"sync"
 
 	"github.com/andydunstall/figg/service/pkg/commitlog"
 )
 
-var (
-	ErrNotFound = errors.New("not found")
+const (
+	SegmentSize = 1 << 24 // 16MB
 )
 
 type Message struct {
@@ -22,7 +19,7 @@ type Message struct {
 
 type Topic struct {
 	name string
-	log  commitlog.CommitLog
+	log  *commitlog.CommitLog
 
 	// Mutex protecting the below fields.
 	mu sync.Mutex
@@ -37,17 +34,9 @@ type Topic struct {
 }
 
 func NewTopic(name string, dir string) (*Topic, error) {
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return nil, err
-	}
-	log, err := commitlog.NewFileCommitLog(dir + "/" + name + ".data")
-	if err != nil {
-		return nil, err
-	}
-
 	return &Topic{
 		name:        name,
-		log:         log,
+		log:         commitlog.NewCommitLog(SegmentSize, dir),
 		mu:          sync.Mutex{},
 		subscribers: []*Subscription{},
 		offset:      0,
@@ -68,15 +57,12 @@ func (t *Topic) Offset() uint64 {
 
 // GetMessage returns the message with the given offset. If the offset is
 // less than the earliest message, will round up to the next message.
-func (t *Topic) GetMessage(offset uint64) ([]byte, uint64, error) {
-	b, offset, err := t.log.Lookup(offset)
-	if err == io.EOF {
-		return nil, 0, ErrNotFound
-	}
+func (t *Topic) GetMessage(offset uint64) ([]byte, error) {
+	b, err := t.log.Lookup(offset)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return b, offset, nil
+	return b, nil
 }
 
 func (t *Topic) Publish(b []byte) error {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/andydunstall/figg/service/pkg/commitlog"
 )
 
 type Attachment interface {
@@ -72,12 +74,12 @@ func (s *Subscription) resumeLoop() {
 
 		// Note if there is no message with offset, will round up to the
 		// earliest message on the topic.
-		m, offset, err := s.topic.GetMessage(s.offset)
-		if err == ErrNotFound {
+		m, err := s.topic.GetMessage(s.offset)
+		if err == commitlog.ErrNotFound {
 			// If we are up to date, register with the topic for the latest
 			// messages. Note checking if we are up to date and registering
 			// must be atomic to avoid missing messages.
-			if s.topic.SubscribeIfLatest(offset, s) {
+			if s.topic.SubscribeIfLatest(s.offset, s) {
 				return
 			}
 			// If theres been a new message since we last checked just try
@@ -89,11 +91,13 @@ func (s *Subscription) resumeLoop() {
 			return
 		}
 
+		s.offset += commitlog.PrefixSize
+		s.offset += uint64(len(m))
+
 		s.attachment.Send(Message{
 			Topic:   s.topic.Name(),
 			Message: m,
-			Offset:  strconv.FormatUint(offset, 10),
+			Offset:  strconv.FormatUint(s.offset, 10),
 		})
-		s.offset = offset
 	}
 }
