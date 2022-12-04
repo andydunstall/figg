@@ -1,55 +1,37 @@
 # Topics
-**WIP**
-
 This describes the design of Figg topics within the server, so here subscriber
 refers to a server side structure (that forwards messages to the client) rather
 than a client subscriber.
 
-Topics are designed to support:
-* Retention: Storing messages for a configurable window on disk (such as a
-week),
-* Resume: Support subscribing from a specific message offset, such
-as when a client disconnects they can resume from the offset of the last message
-they received.
+Topics store messages for a configurable on disk in a commit log.
 
-Features:
-* Support messages of upto 256KB,
-* Persists messages in a commit log for each topic,
-* Assigns each message an offset in the commit log
+See [`service/pkg/topic`](../service/pkg/topic).
 
 ## Commit Log
-The commit log stores all messages in an append only log. The design of the
-commit log is based on [Kafka](https://notes.stephenholiday.com/Kafka.pdf)
-(described in section 3.1).
+The commit log is split into roughly 16MB segments. Each segment is assigned an
+offset in the commit log. The most recent segment is kept in memory so publishes
+are fast, then once its full it is persisted to disk in the background.
 
-The log is split up into segments or roughly 1GB, which with a maximum message
-size of 256KB holds at least 3000 messages per segment. Each segment has its
-own file.
+See [`service/pkg/commitlog`](../service/pkg/commitlog).
 
-To support looking up a specific offset, the offsets of each segment are
-maintained in an in memory structure (and flushed to disk). So when a particular
-offset is required, the server looks up the segment containing that offset,
-subtracts the segments offset, and uses the result as the offset within that
-segment file.
+#### `Append(message)`
+1. Looks up the most recent segment, which will always stored in-memory as a
+`[]byte` slice,
+2. Appends the message to the segment, prefixed by a 32 bit message size,
+3. If the segment is full a new in-memory is created (becoming the most recent
+segment), and a goroutine is spun up to persist the full segment (to avoid
+append blocking)
 
-Unlike Kafka, messages do not have to be flushed to disk before being sent to
-clients (in fact messages are sent before being added to the commit log at all).
-The plan is for fault tolerance to be aceived by replication instead. So if
-a server crashes, when it comes up it can recover most of the commit log from
-disk, then fetch any messages it missed (either due to not being flushed or
-published while the server was down) from a replica.
+#### `Persist(segment)`
+To persist an in-memory segment, the format on disk is the same as the in-memory
+segment so this can just be written to a new file. Each segment has its own
+file to make retention easy (when a segment is expired it can be deleted)
 
-Messages prefixed by their size (with a `uint32`) before being appended to the
-segment.
-
-So when a message is added to the commit log:
-1. Checks if the previous segment is full, if so creates a new one and adds
-the offset to the offset structure,
-2. Appends the message size and message itself to the segment file.
-
-Note currently having to load read messages into memory, since the Websocket
-has a simple `Send(b []byte)` interface. Once move to a custom implementation
-that allows writing to the TCP socket directly can use sendfile.
+#### `Lookup(offset)`
+1. Looks up the segment that contains the offset (in an in-memory structure
+mapping offsets to segments),
+2. If not found returns,
+3. Otherwise looks up in that segment, which is either in-memory or on disk.
 
 ## Subscribers
 Subscribers can be in two states:
