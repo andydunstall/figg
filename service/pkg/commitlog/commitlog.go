@@ -2,8 +2,6 @@ package commitlog
 
 import (
 	"errors"
-	"fmt"
-	"os"
 )
 
 var (
@@ -61,35 +59,10 @@ func (c *CommitLog) Lookup(offset uint64) ([]byte, error) {
 
 // persist swaps the given segment with a persisted file segment.
 func (c *CommitLog) persist(s Segment) error {
-	if err := os.MkdirAll(c.dir, os.ModePerm); err != nil {
-		return err
-	}
-
-	path := fmt.Sprintf("%s/%d.data", c.dir, s.Offset())
-	fileSegment, err := NewFileSegment(path)
+	fileSegment, err := s.Persist(c.dir)
 	if err != nil {
 		return err
 	}
-
-	// Note iterating messages incrementally to avoid locking for too long.
-	// Really at this point we know the segment is immutable so could do without
-	// locks.
-	offset := uint64(0)
-	for {
-		m, err := s.Lookup(offset)
-		if err == ErrNotFound {
-			// Once we've added all the messages in the segment we're done
-			break
-		}
-		offset += PrefixSize
-		offset += uint64(len(m))
-
-		if err = fileSegment.Append(m); err != nil {
-			return err
-		}
-	}
-
-	// Swap the old segment with the new persisted segment.
 	c.segments.Swap(fileSegment)
 	return nil
 }

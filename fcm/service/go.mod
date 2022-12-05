@@ -9,8 +9,14 @@ require (
 )
 
 require (
+	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/fasthttp/websocket v1.5.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
+	github.com/klauspost/compress v1.14.1 // indirect
+	github.com/savsgio/gotils v0.0.0-20211223103454-d0aaa54c5899 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.33.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect

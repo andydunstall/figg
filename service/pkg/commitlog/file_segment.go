@@ -8,39 +8,27 @@ import (
 )
 
 type FileSegment struct {
-	path   string
 	offset uint64
-	wrFile *os.File
-	rdFile *os.File
+	file   *os.File
 
 	// Protects the below fields.
 	mu   sync.RWMutex
 	size uint64
 }
 
-func NewFileSegment(path string) (Segment, error) {
-	wrFile, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, err
-	}
-	rdFile, err := os.OpenFile(path, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, err
-	}
-
+func NewFileSegment(file *os.File, offset uint64, size uint64) (Segment, error) {
 	return &FileSegment{
-		path:   path,
-		wrFile: wrFile,
-		rdFile: rdFile,
-		size:   0,
+		offset: offset,
+		file:   file,
+		size:   size,
 	}, nil
 }
 
 func (s *FileSegment) Append(b []byte) error {
-	if err := binary.Write(s.wrFile, binary.BigEndian, uint32(len(b))); err != nil {
+	if err := binary.Write(s.file, binary.BigEndian, uint32(len(b))); err != nil {
 		return err
 	}
-	if _, err := s.wrFile.Write(b); err != nil {
+	if _, err := s.file.Write(b); err != nil {
 		return err
 	}
 
@@ -52,7 +40,7 @@ func (s *FileSegment) Append(b []byte) error {
 }
 
 func (s *FileSegment) Lookup(offset uint64) ([]byte, error) {
-	if _, err := s.rdFile.Seek(int64(offset), 0); err != nil {
+	if _, err := s.file.Seek(int64(offset), 0); err != nil {
 		if err == io.EOF {
 			return nil, ErrNotFound
 		}
@@ -60,7 +48,7 @@ func (s *FileSegment) Lookup(offset uint64) ([]byte, error) {
 	}
 
 	var size uint32
-	if err := binary.Read(s.rdFile, binary.BigEndian, &size); err != nil {
+	if err := binary.Read(s.file, binary.BigEndian, &size); err != nil {
 		if err == io.EOF {
 			return nil, ErrNotFound
 		}
@@ -68,7 +56,7 @@ func (s *FileSegment) Lookup(offset uint64) ([]byte, error) {
 	}
 
 	buf := make([]byte, size)
-	_, err := io.ReadFull(s.rdFile, buf)
+	_, err := io.ReadFull(s.file, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -85,4 +73,9 @@ func (s *FileSegment) Size() uint64 {
 	defer s.mu.Unlock()
 
 	return s.size
+}
+
+func (s *FileSegment) Persist(dir string) (Segment, error) {
+	// Already persisted so just return self.
+	return s, nil
 }

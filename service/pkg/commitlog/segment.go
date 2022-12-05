@@ -11,4 +11,6 @@ type Segment interface {
 	Size() uint64
 	// Offset returns the starting offset of the segment on the commit log.
 	Offset() uint64
+	// Persists the segment and returns the persisted segment.
+	Persist(dir string) (Segment, error)
 }
