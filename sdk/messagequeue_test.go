@@ -37,6 +37,22 @@ func TestMessageQueue_ACKMessages(t *testing.T) {
 	assert.Equal(t, uint64(3), pending[0].Publish.SeqNum)
 }
 
+func TestMessageQueue_ACKMessagesWithCallback(t *testing.T) {
+	acknowledged := 0
+	cb := func(err error) {
+		acknowledged++
+	}
+
+	queue := NewMessageQueue()
+	queue.Push(fakePublishMessage(0), 0, cb)
+	queue.Push(fakePublishMessage(1), 1, cb)
+	queue.Push(fakePublishMessage(2), 2, cb)
+
+	queue.Acknowledge(2)
+
+	assert.Equal(t, 3, acknowledged)
+}
+
 func BenchmarkMessageQueue_Acknowledge(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		queue := NewMessageQueue()

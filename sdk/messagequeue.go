@@ -23,9 +23,14 @@ func NewMessageQueue() *MessageQueue {
 	}
 }
 
+// Push adds a message to the queue. Note seqNum MUST be contiguous.
 func (s *MessageQueue) Push(m *ProtocolMessage, seqNum uint64, cb func(err error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if len(s.pending) != 0 && s.pending[len(s.pending)-1].SeqNum+1 != seqNum {
+		panic("non contiguous sequence number")
+	}
 
 	s.pending = append(s.pending, PendingMessage{
 		Message: m,
@@ -49,13 +54,19 @@ func (s *MessageQueue) Acknowledge(seqNum uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pending := []PendingMessage{}
-	for _, m := range s.pending {
-		if m.SeqNum > seqNum {
-			pending = append(pending, m)
-		} else if m.CB != nil {
+	if len(s.pending) == 0 {
+		return
+	}
+
+	firstSeqNum := s.pending[0]
+	idx := seqNum - firstSeqNum.SeqNum
+
+	acknowledged := s.pending[:idx+1]
+	s.pending = s.pending[idx+1:]
+
+	for _, m := range acknowledged {
+		if m.CB != nil {
 			m.CB(nil)
 		}
 	}
-	s.pending = pending
 }
