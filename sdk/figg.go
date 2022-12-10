@@ -1,6 +1,7 @@
 package figg
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -46,12 +47,29 @@ func NewFigg(config *Config) (*Figg, error) {
 // Figg guarantees messages are published from the client in order and will
 // reconnect/retry if the publish fails, though delivery cannot be guaranteed
 // (if the client cannot reconnect).
-func (w *Figg) Publish(topic string, m []byte) {
+func (w *Figg) Publish(ctx context.Context, topic string, m []byte) error {
+	ch := make(chan error, 1)
+	w.publish(topic, m, func(err error) {
+		ch <- err
+	})
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (w *Figg) PublishNoACK(topic string, m []byte) {
+	w.publish(topic, m, nil)
+}
+
+func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
 	// Publish messages must be acknowledged so add a sequence number and queue.
 	seqNum := w.seqNum
 	w.seqNum++
 	message := NewPublishMessage(topic, seqNum, m)
-	w.pendingMessages.Push(message, seqNum)
+	w.pendingMessages.Push(message, seqNum, cb)
 
 	// Ignore errors. If we fail to send we'll retry.
 	w.client.Send(message)
@@ -64,6 +82,20 @@ func (w *Figg) Subscribe(topic string, cb MessageHandler) *MessageSubscriber {
 		// Ignore errors. If we arn't connected so the send fails, when we
 		// reconnect all subscribed topics are reattached.
 		w.client.Send(NewAttachMessage(topic))
+	}
+	return sub
+}
+
+// SubscribeFrom to the given topic from the given offset.
+//
+// Note this does not work when there are existing subscribers as can't update
+// the offset for those subscribers, used for testing only.
+func (w *Figg) SubscribeFromOffset(topic string, offset string, cb MessageHandler) *MessageSubscriber {
+	sub, activated := w.topics.Subscribe(topic, cb)
+	if activated {
+		// Ignore errors. If we arn't connected so the send fails, when we
+		// reconnect all subscribed topics are reattached.
+		w.client.Send(NewAttachMessageWithOffset(topic, offset))
 	}
 	return sub
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"time"
 
 	figg "github.com/andydunstall/figg/sdk"
@@ -44,9 +45,8 @@ func (c *PublishCommand) run(topic string, message []byte) error {
 	if err != nil {
 		return err
 	}
-	client.Publish(topic, message)
-	// Given time to publish.
-	// TODO(AD) Publish should block until ACKed.
-	<-time.After(time.Second)
-	return nil
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	return client.Publish(ctx, topic, message)
 }

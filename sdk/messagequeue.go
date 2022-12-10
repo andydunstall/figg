@@ -7,6 +7,7 @@ import (
 type PendingMessage struct {
 	Message *ProtocolMessage
 	SeqNum  uint64
+	CB      func(err error)
 }
 
 // MessageQueue contains messages that must be acknowledged but have not been.
@@ -22,13 +23,14 @@ func NewMessageQueue() *MessageQueue {
 	}
 }
 
-func (s *MessageQueue) Push(m *ProtocolMessage, seqNum uint64) {
+func (s *MessageQueue) Push(m *ProtocolMessage, seqNum uint64, cb func(err error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.pending = append(s.pending, PendingMessage{
 		Message: m,
 		SeqNum:  seqNum,
+		CB:      cb,
 	})
 }
 
@@ -51,6 +53,8 @@ func (s *MessageQueue) Acknowledge(seqNum uint64) {
 	for _, m := range s.pending {
 		if m.SeqNum > seqNum {
 			pending = append(pending, m)
+		} else if m.CB != nil {
+			m.CB(nil)
 		}
 	}
 	s.pending = pending

@@ -1,5 +1,9 @@
 package figg
 
+import (
+	"context"
+)
+
 // StateSubscriber receives notifications about state changes to the figg
 // client, such as connected, disconnected etc. This will only be called from
 // a single goroutine.
@@ -28,4 +32,17 @@ func (s *ChannelStateSubscriber) Ch() <-chan State {
 
 func (s *ChannelStateSubscriber) NotifyState(state State) {
 	s.ch <- state
+}
+
+func (s *ChannelStateSubscriber) WaitForConnected(ctx context.Context) error {
+	for {
+		select {
+		case state := <-s.ch:
+			if state == StateConnected {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

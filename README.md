@@ -47,7 +47,9 @@ client := figg.NewFigg(config)
 Publishes a message to topic `foo`.
 
 ```go
-client.Publish("foo", []byte("bar"))
+if err := client.Publish(ctx, "foo", []byte("bar")); err != nil {
+	// ...
+}
 ```
 
 #### Subscribe
@@ -55,7 +57,7 @@ Subscribes to topic `foo`.
 
 ```go
 sub := client.Subscribe("foo", func(topic string, m []byte) {
-  fmt.Println("received message", string(m))
+	fmt.Println("received message", string(m))
 })
 defer client.Unsubscribe("foo", sub)
 ```

@@ -79,7 +79,7 @@ func (c *StreamCommand) run() error {
 	for {
 		select {
 		case <-ticker.C:
-			publisher.Publish("stream-topic", []byte(fmt.Sprintf("%d", i)))
+			publisher.PublishNoACK("stream-topic", []byte(fmt.Sprintf("%d", i)))
 			i++
 		case state := <-subStateSubscriber.Ch():
 			fmt.Println("sub state", figg.StateToString(state))
