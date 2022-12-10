@@ -5,13 +5,10 @@ This describes how the Figg SDK interacts with the backend.
 less efficient msgpack encoded messages**
 
 ## Transports
-WebSocket is the only supported transport. This was chosen as it is TCP based
-and works in a browser.
+TCP is the only supported transport.
 
 ## Connection
 When the client is created it attempts to connect to the server.
-
-WebSocket connects at URL `ws://{addr}/v1/ws`.
 
 The address should be a load balancer routing the request to a random node
 in the nearest region.

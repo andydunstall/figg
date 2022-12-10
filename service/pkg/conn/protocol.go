@@ -18,6 +18,8 @@ const (
 	TypePayload  = MessageType(7)
 	TypePing     = MessageType(8)
 	TypePong     = MessageType(9)
+
+	PrefixSize = 4
 )
 
 type AttachMessage struct {

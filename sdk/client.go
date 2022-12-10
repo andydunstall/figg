@@ -160,7 +160,7 @@ func (c *Client) connect() error {
 
 	<-time.After(backoff)
 
-	conn, err := WSConnect(c.addr)
+	conn, err := TCPConnect(c.addr)
 	if err != nil {
 		c.connectAttempts += 1
 

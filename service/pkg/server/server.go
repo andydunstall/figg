@@ -1,80 +1,45 @@
 package server
 
 import (
-	"context"
 	"net"
-	"net/http"
-	"time"
 
 	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
-	"github.com/fasthttp/websocket"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	router   *mux.Router
-	broker   *topic.Broker
-	upgrader websocket.Upgrader
-	srv      *http.Server
-	logger   *zap.Logger
+	broker *topic.Broker
+	logger *zap.Logger
 }
 
 func NewServer(broker *topic.Broker, logger *zap.Logger) *Server {
-	router := mux.NewRouter()
-
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
 	s := &Server{
-		router:   router,
-		broker:   broker,
-		upgrader: upgrader,
-		logger:   logger,
+		broker: broker,
+		logger: logger,
 	}
-	s.addRoutes()
 	return s
 }
 
-func (s *Server) addRoutes() {
-	s.router.HandleFunc("/v1/ws", s.wsStream).Methods(http.MethodGet)
-}
-
-func (s *Server) wsStream(w http.ResponseWriter, r *http.Request) {
-	ws, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		s.logger.Debug("failed to upgrade connection", zap.Error(err))
-		return
-	}
-
-	addr := ws.RemoteAddr().String()
+func (s *Server) stream(c net.Conn) {
+	addr := c.RemoteAddr().String()
 	s.logger.Debug(
-		"ws stream connected",
+		"client connected",
 		zap.String("addr", addr),
 	)
 
-	client := NewClient(conn.NewWSConnection(ws), s.broker)
+	client := NewClient(conn.NewTCPConnection(c), s.broker)
 	defer client.Shutdown()
 
 	client.Serve()
 }
 
 func (s *Server) Serve(lis net.Listener) error {
-	srv := &http.Server{
-		Handler:      s.router,
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
+	for {
+		c, err := lis.Accept()
+		if err != nil {
+			return err
+		}
+		go s.stream(c)
 	}
-	s.srv = srv
-	return srv.Serve(lis)
-}
-
-func (s *Server) Shutdown(ctx context.Context) error {
-	if s.srv == nil {
-		return nil
-	}
-	return s.srv.Shutdown(ctx)
 }

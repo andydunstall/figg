@@ -134,6 +134,8 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 			close(doneCh)
 		}
 	})
+	// TODO(AD) Add event when attached.
+	<-time.After(time.Second)
 
 	start := time.Now()
 

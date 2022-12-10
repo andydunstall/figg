@@ -1,9 +1,7 @@
 package service
 
 import (
-	"context"
 	"net"
-	"time"
 
 	"github.com/andydunstall/figg/service/pkg/config"
 	"github.com/andydunstall/figg/service/pkg/server"
@@ -29,10 +27,6 @@ func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 
 	<-doneCh
 
-	logger.Info("starting shut down")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
-
-	err = server.Shutdown(ctx)
-	logger.Info("shut down complete", zap.Error(err))
+	logger.Info("shutting down")
+	lis.Close()
 }

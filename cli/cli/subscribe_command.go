@@ -46,5 +46,7 @@ func (c *SubscribeCommand) run(topic string) error {
 	client.Subscribe(topic, func(topic string, m []byte) {
 		fmt.Println("<-", string(m))
 	})
+
+	select {}
 	return nil
 }

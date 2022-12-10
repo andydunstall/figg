@@ -2,10 +2,7 @@ module github.com/andydunstall/figg/sdk
 
 go 1.19
 
-require (
-	github.com/gorilla/websocket v1.5.0
-	github.com/vmihailenco/msgpack/v5 v5.3.5
-)
+require github.com/vmihailenco/msgpack/v5 v5.3.5
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
