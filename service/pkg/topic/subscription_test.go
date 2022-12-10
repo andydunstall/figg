@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ func newFakeAttachment() *fakeAttachment {
 	}
 }
 
-func (a *fakeAttachment) Send(m Message) {
+func (a *fakeAttachment) Send(ctx context.Context, m Message) {
 	a.Ch <- m
 }
 

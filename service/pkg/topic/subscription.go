@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync/atomic"
@@ -9,7 +10,7 @@ import (
 )
 
 type Attachment interface {
-	Send(m Message)
+	Send(ctx context.Context, m Message)
 }
 
 // Subscription reads messages from the topic and sends to the connection.
@@ -52,7 +53,7 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint6
 
 // Notify notifys the subscriber about a new message.
 func (s *Subscription) Notify(m Message) {
-	s.attachment.Send(m)
+	s.attachment.Send(nil, m)
 }
 
 // Shutdown unsubscribes and stops the send loop.
@@ -94,7 +95,7 @@ func (s *Subscription) resumeLoop() {
 		s.offset += commitlog.PrefixSize
 		s.offset += uint64(len(m))
 
-		s.attachment.Send(Message{
+		s.attachment.Send(nil, Message{
 			Topic:   s.topic.Name(),
 			Message: m,
 			Offset:  strconv.FormatUint(s.offset, 10),

@@ -1,12 +1,21 @@
 package server
 
 import (
+	"context"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
 )
+
+func RequestContext(requestType conn.MessageType) context.Context {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "timestamp", time.Now().UnixNano())
+	ctx = context.WithValue(ctx, "type", requestType)
+	return ctx
+}
 
 type ClientAttachment struct {
 	client *Client
@@ -18,15 +27,20 @@ func NewClientAttachment(client *Client) topic.Attachment {
 	}
 }
 
-func (a *ClientAttachment) Send(m topic.Message) {
-	a.client.Send(conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+func (a *ClientAttachment) Send(ctx context.Context, m topic.Message) {
+	a.client.Send(ctx, conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+}
+
+type Outgoing struct {
+	Ctx context.Context
+	Buf []byte
 }
 
 type Client struct {
 	conn          conn.Connection
 	broker        *topic.Broker
 	subscriptions *topic.Subscriptions
-	outgoing      [][]byte
+	outgoing      []Outgoing
 	mu            *sync.Mutex
 	cv            *sync.Cond
 }
@@ -36,7 +50,7 @@ func NewClient(conn conn.Connection, broker *topic.Broker) *Client {
 	c := &Client{
 		conn:     conn,
 		broker:   broker,
-		outgoing: [][]byte{},
+		outgoing: []Outgoing{},
 		mu:       mu,
 		cv:       sync.NewCond(mu),
 	}
@@ -45,7 +59,7 @@ func NewClient(conn conn.Connection, broker *topic.Broker) *Client {
 	return c
 }
 
-func (c *Client) Send(m *conn.ProtocolMessage) error {
+func (c *Client) Send(ctx context.Context, m *conn.ProtocolMessage) error {
 	b, err := m.Encode()
 	if err != nil {
 		return err
@@ -54,7 +68,10 @@ func (c *Client) Send(m *conn.ProtocolMessage) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.outgoing = append(c.outgoing, b)
+	c.outgoing = append(c.outgoing, Outgoing{
+		Ctx: ctx,
+		Buf: b,
+	})
 	c.cv.Signal()
 	return nil
 }
@@ -83,7 +100,9 @@ func (c *Client) readLoop() error {
 			return err
 		}
 
-		c.handleIncoming(m)
+		ctx := RequestContext(m.Type)
+
+		c.handleIncoming(ctx, m)
 	}
 }
 
@@ -99,7 +118,7 @@ func (c *Client) writeLoop() {
 
 		outgoing := c.takeOutgoing()
 		for _, b := range outgoing {
-			if err := c.conn.Send(b); err != nil {
+			if err := c.conn.Send(b.Buf); err != nil {
 				// If we get an error expect the read will fail so the
 				// connection will close.
 				return
@@ -108,10 +127,10 @@ func (c *Client) writeLoop() {
 	}
 }
 
-func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
+func (c *Client) handleIncoming(ctx context.Context, m *conn.ProtocolMessage) {
 	switch m.Type {
 	case conn.TypePing:
-		c.Send(conn.NewPongMessage(m.Ping.Timestamp))
+		c.Send(ctx, conn.NewPongMessage(m.Ping.Timestamp))
 	case conn.TypeAttach:
 		if m.Attach.Offset != "" {
 			offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
@@ -124,10 +143,10 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 		} else {
 			c.subscriptions.AddSubscription(m.Attach.Topic)
 		}
-		c.Send(conn.NewAttachedMessage(m.Attach.Topic))
+		c.Send(ctx, conn.NewAttachedMessage(m.Attach.Topic))
 	case conn.TypeDetach:
 		// TODO(AD) Unsubscribe
-		c.Send(conn.NewDetachedMessage())
+		c.Send(ctx, conn.NewDetachedMessage())
 	case conn.TypePublish:
 		topic, err := c.broker.GetTopic(m.Publish.Topic)
 		if err != nil {
@@ -136,15 +155,16 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 		if err := topic.Publish(m.Publish.Payload); err != nil {
 			// TODO(AD)
 		}
-		c.Send(conn.NewACKMessage(m.Publish.SeqNum))
+		message := conn.NewACKMessage(m.Publish.SeqNum)
+		c.Send(ctx, message)
 	}
 }
 
-func (c *Client) takeOutgoing() [][]byte {
+func (c *Client) takeOutgoing() []Outgoing {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	outgoing := c.outgoing
-	c.outgoing = [][]byte{}
+	c.outgoing = []Outgoing{}
 	return outgoing
 }

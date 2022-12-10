@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -25,7 +26,7 @@ func newNopAttachment(expected int) *nopAttachment {
 	}
 }
 
-func (a *nopAttachment) Send(m Message) {
+func (a *nopAttachment) Send(ctx context.Context, m Message) {
 	a.received++
 	if a.expected == a.received {
 		close(a.DoneCh)
