@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -79,7 +80,7 @@ func (c *StreamCommand) run() error {
 	for {
 		select {
 		case <-ticker.C:
-			publisher.PublishNoACK("stream-topic", []byte(fmt.Sprintf("%d", i)))
+			publisher.Publish(context.Background(), "stream-topic", []byte(fmt.Sprintf("%d", i)))
 			i++
 		case state := <-subStateSubscriber.Ch():
 			fmt.Println("sub state", figg.StateToString(state))

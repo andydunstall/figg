@@ -133,7 +133,9 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 		if err != nil {
 			// TODO(AD)
 		}
-		topic.Publish(m.Publish.Payload)
+		if err := topic.Publish(m.Publish.Payload); err != nil {
+			// TODO(AD)
+		}
 		c.Send(conn.NewACKMessage(m.Publish.SeqNum))
 	}
 }

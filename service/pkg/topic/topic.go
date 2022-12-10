@@ -66,7 +66,7 @@ func (t *Topic) GetMessage(offset uint64) ([]byte, error) {
 }
 
 func (t *Topic) Publish(b []byte) error {
-	// This should be async and not block publish.
+	// Add to the commit log before sending to subscribers.
 	if err := t.log.Append(b); err != nil {
 		return err
 	}

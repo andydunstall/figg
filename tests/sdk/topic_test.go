@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 		messageCh <- m
 	})
 
-	client.PublishNoACK("foo", []byte("bar"))
+	client.Publish(context.Background(), "foo", []byte("bar"))
 
 	assert.Equal(t, []byte("bar"), <-messageCh)
 }
@@ -73,7 +74,7 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	<-time.After(time.Second)
 
 	// Publish a message and wait to receive.
-	publisherClient.PublishNoACK("foo", []byte("bar"))
+	publisherClient.Publish(context.Background(), "foo", []byte("bar"))
 	assert.Equal(t, []byte("bar"), <-messageCh)
 
 	// Disable the networking for the subscriber and reenable after 5 seconds.
@@ -83,7 +84,7 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	})
 
 	for i := 0; i < 5; i++ {
-		publisherClient.PublishNoACK("foo", []byte(fmt.Sprintf("msg-%d", i)))
+		publisherClient.Publish(context.Background(), "foo", []byte(fmt.Sprintf("msg-%d", i)))
 	}
 
 	// Once we reconnect we should get the messages we missed.

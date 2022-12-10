@@ -28,7 +28,7 @@ func NewBenchCommand(config *FiggConfig) *BenchCommand {
 		},
 	}
 	cobraCmd.PersistentFlags().IntVar(&command.samples, "samples", 5, "number of bench samples")
-	cobraCmd.PersistentFlags().IntVar(&command.publishes, "publishes", 100000, "number of publishes")
+	cobraCmd.PersistentFlags().IntVar(&command.publishes, "publishes", 10000, "number of publishes")
 	command.cobraCmd = cobraCmd
 	return command
 }
@@ -79,13 +79,10 @@ func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
 
 	start := time.Now()
 
-	// Only wait for the last ACK (since this means all previous messages have
-	// also been ACK'ed).
-	for i := 0; i != c.publishes-1; i++ {
-		publisher.PublishNoACK("bench-publish", message)
-	}
-	if err := publisher.Publish(context.Background(), "bench-publish", message); err != nil {
-		return err
+	for i := 0; i != c.publishes; i++ {
+		if err := publisher.Publish(context.Background(), "bench-publish", message); err != nil {
+			return err
+		}
 	}
 
 	elapsed := time.Since(start)
@@ -141,7 +138,9 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != count; i++ {
-		publisher.PublishNoACK("bench-subscribe", message)
+		if err := publisher.Publish(context.Background(), "bench-subscribe", message); err != nil {
+			return err
+		}
 	}
 
 	<-doneCh
@@ -178,13 +177,10 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	message := make([]byte, payloadLen)
 	rand.Read(message)
-	for i := 0; i != c.publishes-1; i++ {
-		publisher.PublishNoACK("bench-resume", message)
-	}
-	// Wait for the final publish to be ACK'ed (which means all others have
-	// been ACK'ed).
-	if err = publisher.Publish(context.Background(), "bench-resume", message); err != nil {
-		return err
+	for i := 0; i != c.publishes; i++ {
+		if err := publisher.Publish(context.Background(), "bench-resume", message); err != nil {
+			return err
+		}
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)

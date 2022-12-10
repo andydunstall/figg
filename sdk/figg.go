@@ -60,10 +60,6 @@ func (w *Figg) Publish(ctx context.Context, topic string, m []byte) error {
 	}
 }
 
-func (w *Figg) PublishNoACK(topic string, m []byte) {
-	w.publish(topic, m, nil)
-}
-
 func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
 	// Publish messages must be acknowledged so add a sequence number and queue.
 	seqNum := w.seqNum
