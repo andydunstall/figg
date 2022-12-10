@@ -36,3 +36,15 @@ func TestMessageQueue_ACKMessages(t *testing.T) {
 	assert.Equal(t, 1, len(pending))
 	assert.Equal(t, uint64(3), pending[0].Publish.SeqNum)
 }
+
+func BenchmarkMessageQueue_Acknowledge(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		queue := NewMessageQueue()
+		for i := uint64(0); i != 512; i++ {
+			queue.Push(fakePublishMessage(i), i, nil)
+		}
+		for i := uint64(0); i != 512; i++ {
+			queue.Acknowledge(i)
+		}
+	}
+}
