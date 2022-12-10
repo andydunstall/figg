@@ -1,20 +1,13 @@
 # Figg
-Figg is a simple pub/sub messaging service.
+Figg is a simple pub/sub messaging service. It has no fault tolerance or
+replication and just runs on a single node. This is just a project I'm building
+to practice Go and systems performance.
 
-**WIP**: This is only a projects I'm building for run, and to practice Go and
-systems performance.
-
-**Features**
-* Resume: Subscribers can resume from an old offset (either to fetch history
-or ensure message continuity across connection drops),
-* Message retention: Messages are persisted to a commit log so subscribers can
-resume from an old offset.
-
-**Limitations**
-* Only runs on a single node, so theres no faults tolerance or horizonal
-scaling,
-* Many areas are still WIP. The basic service and resume works other areas
-(especially in the SDK) still need work.
+## Features
+* Message continuity: If subscribers connections drop they automatically
+reconnect and resume any missed messages,
+* Message retention: Messages are persisted to a commit log so subscribers
+can start subscribing from an old message.
 
 ## Components
 * [`service/`](./service): Backend Figg service,
@@ -30,37 +23,33 @@ The [`Figg service`](./service) can be started with `./bin/figg.sh`, or compile
 the package in [`./service`](./service) with `go build ./...`. For now all
 configuration is passed via the command line.
 
-### SDK
+### Client
 See [`sdk/`](./sdk) for full usage.
-
-#### Connect
-Connects to a figg node.
 
 ```go
 config := &Config{
 	Addr: "mynode",
 }
 client := figg.NewFigg(config)
-```
 
-#### Publish
-Publishes a message to topic `foo`.
+sub := client.Subscribe("foo", func(topic string, m []byte) {
+	fmt.Println("received message", string(m))
+})
+defer client.Unsubscribe("foo", sub)
 
-```go
 if err := client.Publish(ctx, "foo", []byte("bar")); err != nil {
 	// ...
 }
 ```
 
-#### Subscribe
-Subscribes to topic `foo`.
+## Benchmarking
+The Figg service can be benchmarked using `./bin/cli.sh bench` which runs
+benchmarks for multiple scenarios. The service can be configured to output
+CPU and memory profiles using `--cpuprofile` and `--memoryprofile` respectively
+which can be analysed using `go tool pprof`.
 
-```go
-sub := client.Subscribe("foo", func(topic string, m []byte) {
-	fmt.Println("received message", string(m))
-})
-defer client.Unsubscribe("foo", sub)
-```
+Some performance critical components have benchmark tests that can be run with
+`go test` or `./bin/bench.sh`.
 
 ## Testing
 The service and SDK aims for high unit test coverage where possible which are
