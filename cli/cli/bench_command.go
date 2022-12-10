@@ -128,14 +128,12 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.Subscribe("bench-subscribe", func(topic string, m []byte) {
+	subscriber.Subscribe(context.Background(), "bench-subscribe", func(topic string, m []byte) {
 		received++
 		if received == count {
 			close(doneCh)
 		}
 	})
-	// TODO(AD) Add event when attached.
-	<-time.After(time.Second)
 
 	start := time.Now()
 
@@ -200,7 +198,7 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.SubscribeFromOffset("bench-resume", "0", func(topic string, m []byte) {
+	subscriber.SubscribeFromOffset(context.Background(), "bench-resume", "0", func(topic string, m []byte) {
 		received++
 		if received == count {
 			close(doneCh)

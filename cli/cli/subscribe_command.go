@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	figg "github.com/andydunstall/figg/sdk"
@@ -43,7 +44,7 @@ func (c *SubscribeCommand) run(topic string) error {
 	if err != nil {
 		return err
 	}
-	client.Subscribe(topic, func(topic string, m []byte) {
+	client.Subscribe(context.Background(), topic, func(topic string, m []byte) {
 		fmt.Println("<-", string(m))
 	})
 

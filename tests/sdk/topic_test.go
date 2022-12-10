@@ -29,7 +29,7 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 	defer client.Shutdown()
 
 	messageCh := make(chan []byte)
-	client.Subscribe("foo", func(topic string, m []byte) {
+	client.Subscribe(context.Background(), "foo", func(topic string, m []byte) {
 		messageCh <- m
 	})
 
@@ -66,7 +66,7 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	defer subscriberClient.Shutdown()
 
 	messageCh := make(chan []byte)
-	subscriberClient.Subscribe("foo", func(topic string, m []byte) {
+	subscriberClient.Subscribe(context.Background(), "foo", func(topic string, m []byte) {
 		messageCh <- m
 	})
 

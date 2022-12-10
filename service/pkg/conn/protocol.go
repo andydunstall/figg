@@ -27,12 +27,16 @@ type AttachMessage struct {
 	Offset string
 }
 
-type AttachedMessage struct{}
+type AttachedMessage struct {
+	Topic string
+}
 
-func NewAttachedMessage() *ProtocolMessage {
+func NewAttachedMessage(topic string) *ProtocolMessage {
 	return &ProtocolMessage{
-		Type:     TypeAttached,
-		Attached: &AttachedMessage{},
+		Type: TypeAttached,
+		Attached: &AttachedMessage{
+			Topic: topic,
+		},
 	}
 }
 

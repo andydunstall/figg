@@ -124,7 +124,7 @@ func (c *Client) handleIncoming(m *conn.ProtocolMessage) {
 		} else {
 			c.subscriptions.AddSubscription(m.Attach.Topic)
 		}
-		c.Send(conn.NewAttachedMessage())
+		c.Send(conn.NewAttachedMessage(m.Attach.Topic))
 	case conn.TypeDetach:
 		// TODO(AD) Unsubscribe
 		c.Send(conn.NewDetachedMessage())

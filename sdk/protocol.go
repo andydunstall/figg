@@ -53,9 +53,12 @@ func (m AttachMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type AttachedMessage struct{}
+type AttachedMessage struct {
+	Topic string
+}
 
 func (m AttachedMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("topic", m.Topic)
 	return nil
 }
 

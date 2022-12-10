@@ -32,7 +32,7 @@ config := &Config{
 }
 client := figg.NewFigg(config)
 
-sub := client.Subscribe("foo", func(topic string, m []byte) {
+sub := client.Subscribe(ctx, "foo", func(topic string, m []byte) {
 	fmt.Println("received message", string(m))
 })
 defer client.Unsubscribe("foo", sub)

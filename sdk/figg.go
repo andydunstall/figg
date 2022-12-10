@@ -23,6 +23,8 @@ type Figg struct {
 	// an acknowledgement.
 	seqNum uint64
 
+	pendingAttaches *AttachQueue
+
 	doneCh chan interface{}
 	wg     sync.WaitGroup
 
@@ -60,40 +62,47 @@ func (w *Figg) Publish(ctx context.Context, topic string, m []byte) error {
 	}
 }
 
-func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
-	// Publish messages must be acknowledged so add a sequence number and queue.
-	seqNum := w.seqNum
-	w.seqNum++
-	message := NewPublishMessage(topic, seqNum, m)
-	w.pendingMessages.Push(message, seqNum, cb)
-
-	// Ignore errors. If we fail to send we'll retry.
-	w.client.Send(message)
-}
-
 // Subscribe to the given topic.
-func (w *Figg) Subscribe(topic string, cb MessageHandler) *MessageSubscriber {
+func (w *Figg) Subscribe(ctx context.Context, topic string, cb MessageHandler) (*MessageSubscriber, error) {
 	sub, activated := w.topics.Subscribe(topic, cb)
 	if activated {
-		// Ignore errors. If we arn't connected so the send fails, when we
-		// reconnect all subscribed topics are reattached.
-		w.client.Send(NewAttachMessage(topic))
+		// Attach to the topic.
+		ch := make(chan interface{}, 1)
+		w.attach(topic, func() {
+			ch <- struct{}{}
+		})
+		select {
+		case <-ch:
+			return sub, nil
+		case <-ctx.Done():
+			return sub, ctx.Err()
+		}
 	}
-	return sub
+
+	// We're already attached.
+	return sub, nil
 }
 
 // SubscribeFrom to the given topic from the given offset.
 //
 // Note this does not work when there are existing subscribers as can't update
 // the offset for those subscribers, used for testing only.
-func (w *Figg) SubscribeFromOffset(topic string, offset string, cb MessageHandler) *MessageSubscriber {
+func (w *Figg) SubscribeFromOffset(ctx context.Context, topic string, offset string, cb MessageHandler) (*MessageSubscriber, error) {
 	sub, activated := w.topics.Subscribe(topic, cb)
 	if activated {
-		// Ignore errors. If we arn't connected so the send fails, when we
-		// reconnect all subscribed topics are reattached.
-		w.client.Send(NewAttachMessageWithOffset(topic, offset))
+		// Attach to the topic.
+		ch := make(chan interface{}, 1)
+		w.attachFromOffset(topic, offset, func() {
+			ch <- struct{}{}
+		})
+		select {
+		case <-ch:
+			return sub, nil
+		case <-ctx.Done():
+			return sub, ctx.Err()
+		}
 	}
-	return sub
+	return sub, nil
 }
 
 // Unsubscribe from the given topic.
@@ -134,12 +143,42 @@ func newFigg(config *Config) (*Figg, error) {
 		stateSubscriber: config.StateSubscriber,
 		topics:          NewTopics(),
 		pendingMessages: NewMessageQueue(),
+		pendingAttaches: NewAttachQueue(),
 		doneCh:          make(chan interface{}),
 		wg:              sync.WaitGroup{},
 		logger:          logger,
 	}
 	figg.client = NewClient(config.Addr, logger, figg.onMessage, figg.onState)
 	return figg, nil
+}
+
+func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
+	// Publish messages must be acknowledged so add a sequence number and queue.
+	seqNum := w.seqNum
+	w.seqNum++
+	message := NewPublishMessage(topic, seqNum, m)
+	w.pendingMessages.Push(message, seqNum, cb)
+
+	// Ignore errors. If we fail to send we'll retry.
+	w.client.Send(message)
+}
+
+func (w *Figg) attach(topic string, cb func()) {
+	w.pendingAttaches.Push(topic, cb)
+
+	message := NewAttachMessage(topic)
+	// Ignore errors. If we arn't connected so the send fails, when we
+	// reconnect all subscribed topics are reattached.
+	w.client.Send(message)
+}
+
+func (w *Figg) attachFromOffset(topic string, offset string, cb func()) {
+	w.pendingAttaches.Push(topic, cb)
+
+	message := NewAttachMessageWithOffset(topic, offset)
+	// Ignore errors. If we arn't connected so the send fails, when we
+	// reconnect all subscribed topics are reattached.
+	w.client.Send(message)
 }
 
 func (w *Figg) pingLoop() {
@@ -176,6 +215,9 @@ func (w *Figg) onMessage(m *ProtocolMessage) {
 	case TypeACK:
 		w.logger.Debug("on ack", zap.Uint64("seq-num", m.ACK.SeqNum))
 		w.pendingMessages.Acknowledge(m.ACK.SeqNum)
+	case TypeAttached:
+		w.logger.Debug("on attached", zap.String("topic", m.Attached.Topic))
+		w.pendingAttaches.Attached(m.Attached.Topic)
 	case TypePayload:
 		w.logger.Debug("on payload", zap.String("topic", m.Payload.Topic))
 		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message, m.Payload.Offset)
