@@ -12,9 +12,9 @@ func fakePublishMessage(seqNum uint64) *ProtocolMessage {
 
 func TestMessageQueue_GetPendingMessages(t *testing.T) {
 	queue := NewMessageQueue()
-	queue.Push(fakePublishMessage(0), 0)
-	queue.Push(fakePublishMessage(1), 1)
-	queue.Push(fakePublishMessage(2), 2)
+	queue.Push(fakePublishMessage(0), 0, nil)
+	queue.Push(fakePublishMessage(1), 1, nil)
+	queue.Push(fakePublishMessage(2), 2, nil)
 
 	pending := queue.Messages()
 	assert.Equal(t, 3, len(pending))
@@ -25,10 +25,10 @@ func TestMessageQueue_GetPendingMessages(t *testing.T) {
 
 func TestMessageQueue_ACKMessages(t *testing.T) {
 	queue := NewMessageQueue()
-	queue.Push(fakePublishMessage(0), 0)
-	queue.Push(fakePublishMessage(1), 1)
-	queue.Push(fakePublishMessage(2), 2)
-	queue.Push(fakePublishMessage(3), 3)
+	queue.Push(fakePublishMessage(0), 0, nil)
+	queue.Push(fakePublishMessage(1), 1, nil)
+	queue.Push(fakePublishMessage(2), 2, nil)
+	queue.Push(fakePublishMessage(3), 3, nil)
 
 	queue.Acknowledge(2)
 
