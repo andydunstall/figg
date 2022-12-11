@@ -127,31 +127,17 @@ func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
 	<-attachment.DoneCh
 }
 
-func BenchmarkTopicPublish_Pub100_Sub1_M10(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1_M1K(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
-		benchmarkTopicPublish(topicName, 100, 1, 10)
+		benchmarkTopicPublish(topicName, 1000, 1, 1<<10)
 	}
 }
 
-func BenchmarkTopicPublish_Pub100_Sub1000_M10(b *testing.B) {
+func BenchmarkTopicPublish_Pub1000_Sub1000_M1K(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		topicName := fmt.Sprintf("bench-topic-%d", n)
-		benchmarkTopicPublish(topicName, 100, 1000, 10)
-	}
-}
-
-func BenchmarkTopicPublish_Pub1000_Sub1_M10(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		topicName := fmt.Sprintf("bench-topic-%d", n)
-		benchmarkTopicPublish(topicName, 1000, 1, 10)
-	}
-}
-
-func BenchmarkTopicPublish_Pub1000_Sub1000_M10(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		topicName := fmt.Sprintf("bench-topic-%d", n)
-		benchmarkTopicPublish(topicName, 1000, 1000, 10)
+		benchmarkTopicPublish(topicName, 1000, 1000, 1<<10)
 	}
 }
 
