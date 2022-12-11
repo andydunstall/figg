@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SegmentSize = 1 << 24 // 16MB
+	SegmentSize = 1 << 22 // 4MB
 )
 
 type Message struct {

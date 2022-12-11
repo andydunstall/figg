@@ -15,11 +15,12 @@ type InMemorySegment struct {
 	buf []byte
 }
 
-func NewInMemorySegment(offset uint64) Segment {
+func NewInMemorySegment(segmentSize uint64, offset uint64) Segment {
 	return &InMemorySegment{
 		offset: offset,
 		mu:     sync.RWMutex{},
-		buf:    []byte{},
+		// Preallocate capacity.
+		buf: make([]byte, 0, segmentSize),
 	}
 }
 

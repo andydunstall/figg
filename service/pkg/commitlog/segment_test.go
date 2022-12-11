@@ -10,7 +10,7 @@ import (
 )
 
 func TestSegment_AppendThenLookup(t *testing.T) {
-	segment := NewInMemorySegment(0)
+	segment := NewInMemorySegment(1024, 0)
 	assert.Nil(t, segment.Append([]byte("foo")))
 	assert.Nil(t, segment.Append([]byte("bar")))
 	assert.Nil(t, segment.Append([]byte("car")))
@@ -36,7 +36,7 @@ func TestSegment_Persist(t *testing.T) {
 	defer os.Remove(dir)
 
 	// Use a large segment size so all messages fit in the same segment.
-	segment := NewInMemorySegment(500)
+	segment := NewInMemorySegment(1024, 500)
 	assert.Nil(t, segment.Append([]byte("foo")))
 	assert.Nil(t, segment.Append([]byte("bar")))
 	assert.Nil(t, segment.Append([]byte("car")))
@@ -70,7 +70,7 @@ func benchmarkSegmentPersist(appends int, messageLen int) {
 	message := make([]byte, messageLen)
 	rand.Read(message)
 
-	segment := NewInMemorySegment(0)
+	segment := NewInMemorySegment(1<<22, 0)
 	for i := 0; i != appends; i++ {
 		segment.Append(message)
 	}

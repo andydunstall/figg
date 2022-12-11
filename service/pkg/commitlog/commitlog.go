@@ -25,7 +25,7 @@ func NewCommitLog(segmentSize uint64, dir string) *CommitLog {
 func (c *CommitLog) Append(b []byte) error {
 	segment := c.segments.Last()
 	if segment == nil {
-		segment = NewInMemorySegment(0)
+		segment = NewInMemorySegment(c.segmentSize, 0)
 		c.segments.Add(0, segment)
 	}
 
@@ -41,7 +41,7 @@ func (c *CommitLog) Append(b []byte) error {
 			}
 		}()
 		segmentOffset := segment.Offset() + segment.Size()
-		c.segments.Add(segmentOffset, NewInMemorySegment(segmentOffset))
+		c.segments.Add(segmentOffset, NewInMemorySegment(c.segmentSize, segmentOffset))
 	}
 
 	return nil
