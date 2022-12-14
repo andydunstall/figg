@@ -1,13 +1,19 @@
-package figg
+package utils
 
 import (
-	"encoding/binary"
 	"net"
 )
 
 type TCPConnection struct {
 	conn   net.Conn
 	stream *StreamBuffer
+}
+
+func NewTCPConnection(conn net.Conn) Connection {
+	return &TCPConnection{
+		conn:   conn,
+		stream: NewStreamBuffer(),
+	}
 }
 
 func TCPConnect(addr string) (Connection, error) {
@@ -22,27 +28,21 @@ func TCPConnect(addr string) (Connection, error) {
 }
 
 func (c *TCPConnection) Send(b []byte) error {
-	prefix := make([]byte, 4)
-	binary.BigEndian.PutUint32(prefix, uint32(len(b)))
-
-	bufs := net.Buffers{}
-	bufs = append(bufs, prefix)
-	bufs = append(bufs, b)
-	_, err := bufs.WriteTo(c.conn)
+	_, err := c.conn.Write(b)
 	return err
 }
 
-func (c *TCPConnection) Recv() ([]byte, error) {
+func (c *TCPConnection) Recv() (MessageType, []byte, error) {
 	buf := make([]byte, 1024)
 	for {
-		b, ok := c.stream.Next()
+		messageType, payload, ok := c.stream.Next()
 		if ok {
-			return b, nil
+			return messageType, payload, nil
 		}
 
 		n, err := c.conn.Read(buf)
 		if err != nil {
-			return nil, err
+			return MessageType(0), nil, err
 		}
 
 		c.stream.Push(buf[:n])

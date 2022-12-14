@@ -5,7 +5,7 @@ import (
 )
 
 type PendingMessage struct {
-	Message *ProtocolMessage
+	Message []byte
 	SeqNum  uint64
 	CB      func(err error)
 }
@@ -24,7 +24,7 @@ func NewMessageQueue() *MessageQueue {
 }
 
 // Push adds a message to the queue. Note seqNum MUST be contiguous.
-func (s *MessageQueue) Push(m *ProtocolMessage, seqNum uint64, cb func(err error)) {
+func (s *MessageQueue) Push(m []byte, seqNum uint64, cb func(err error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -39,11 +39,11 @@ func (s *MessageQueue) Push(m *ProtocolMessage, seqNum uint64, cb func(err error
 	})
 }
 
-func (s *MessageQueue) Messages() []*ProtocolMessage {
+func (s *MessageQueue) Messages() [][]byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pending := []*ProtocolMessage{}
+	pending := [][]byte{}
 	for _, m := range s.pending {
 		pending = append(pending, m.Message)
 	}

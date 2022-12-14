@@ -2,10 +2,12 @@ package figg
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
@@ -110,7 +112,7 @@ func (w *Figg) Unsubscribe(topic string, sub *MessageSubscriber) {
 	if w.topics.Unsubscribe(topic, sub) {
 		// Ignore errors. If we arn't connected so the send fails, when we
 		// reconnect this topic won't be reattached.
-		w.client.Send(NewDetachMessage(topic))
+		// TODO w.client.Send(NewDetachMessage(topic))
 	}
 }
 
@@ -153,32 +155,32 @@ func newFigg(config *Config) (*Figg, error) {
 }
 
 func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
+
 	// Publish messages must be acknowledged so add a sequence number and queue.
 	seqNum := w.seqNum
 	w.seqNum++
-	message := NewPublishMessage(topic, seqNum, m)
-	w.pendingMessages.Push(message, seqNum, cb)
+
+	buf := utils.PublishMessage(topic, seqNum, m)
+	w.pendingMessages.Push(buf, seqNum, cb)
 
 	// Ignore errors. If we fail to send we'll retry.
-	w.client.Send(message)
+	w.client.SendBytes(buf)
 }
 
 func (w *Figg) attach(topic string, cb func()) {
-	w.pendingAttaches.Push(topic, cb)
-
-	message := NewAttachMessage(topic)
-	// Ignore errors. If we arn't connected so the send fails, when we
-	// reconnect all subscribed topics are reattached.
-	w.client.Send(message)
+	w.attachFromOffset(topic, "", cb)
 }
 
 func (w *Figg) attachFromOffset(topic string, offset string, cb func()) {
-	w.pendingAttaches.Push(topic, cb)
+	if cb != nil {
+		w.pendingAttaches.Push(topic, cb)
+	}
 
-	message := NewAttachMessageWithOffset(topic, offset)
+	buf := utils.AttachMessage(topic, offset)
+
 	// Ignore errors. If we arn't connected so the send fails, when we
 	// reconnect all subscribed topics are reattached.
-	w.client.Send(message)
+	w.client.SendBytes(buf)
 }
 
 func (w *Figg) pingLoop() {
@@ -205,23 +207,53 @@ func (w *Figg) onState(state State) {
 	}
 }
 
-func (w *Figg) onMessage(m *ProtocolMessage) {
-	w.logger.Debug(
-		"on message",
-		zap.Object("message", m),
-	)
-
-	switch m.Type {
-	case TypeACK:
-		w.logger.Debug("on ack", zap.Uint64("seq-num", m.ACK.SeqNum))
-		w.pendingMessages.Acknowledge(m.ACK.SeqNum)
-	case TypeAttached:
-		w.logger.Debug("on attached", zap.String("topic", m.Attached.Topic))
-		w.pendingAttaches.Attached(m.Attached.Topic)
-	case TypePayload:
-		w.logger.Debug("on payload", zap.String("topic", m.Payload.Topic))
-		w.topics.OnMessage(m.Payload.Topic, m.Payload.Message, m.Payload.Offset)
+func (w *Figg) onMessage(messageType utils.MessageType, b []byte) {
+	switch messageType {
+	case utils.TypePayload:
+		w.onPayloadMessage(b)
+	case utils.TypeACK:
+		w.onACKMessage(b)
+	case utils.TypeAttached:
+		w.onAttachedMessage(b)
 	}
+}
+
+func (w *Figg) onPayloadMessage(b []byte) {
+	offset := 0
+
+	topicLen := binary.BigEndian.Uint16(b[offset : offset+2])
+	offset += 2
+	topicName := string(b[offset : offset+int(topicLen)])
+	offset += int(topicLen)
+
+	offsetLen := binary.BigEndian.Uint16(b[offset : offset+2])
+	offset += 2
+	messageOffset := string(b[offset : offset+int(offsetLen)])
+	offset += int(offsetLen)
+
+	payloadLen := binary.BigEndian.Uint32(b[offset : offset+4])
+	offset += 4
+	payload := b[offset : offset+int(payloadLen)]
+
+	w.topics.OnMessage(topicName, payload, messageOffset)
+}
+
+func (w *Figg) onACKMessage(b []byte) {
+	offset := 0
+
+	seqNum := binary.BigEndian.Uint64(b[offset : offset+8])
+	w.pendingMessages.Acknowledge(seqNum)
+}
+
+func (w *Figg) onAttachedMessage(b []byte) {
+	offset := 0
+
+	topicLen := binary.BigEndian.Uint16(b[offset : offset+2])
+	offset += 2
+	topicName := string(b[offset : offset+int(topicLen)])
+	offset += int(topicLen)
+
+	w.pendingAttaches.Attached(topicName)
 }
 
 func (w *Figg) onConnState(s State) {
@@ -242,20 +274,20 @@ func (w *Figg) onConnected() {
 		w.logger.Debug("reattaching", zap.String("topic", topic))
 		// Ignore errors. If we arn't connected so the send fails, when we
 		// reconnect all subscribed topics are reattached.
-		w.client.Send(NewAttachMessageWithOffset(topic, w.topics.Offset(topic)))
+		w.attachFromOffset(topic, w.topics.Offset(topic), nil)
 	}
 
 	// Send all unacknowledged messages.
 	for _, m := range w.pendingMessages.Messages() {
 		// Ignore errors. If we fail to send we'll retry.
-		w.client.Send(m)
+		w.client.SendBytes(m)
 	}
 }
 
 func (w *Figg) ping() {
 	timestamp := time.Now()
 	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
-	m := NewPingMessage(timestamp.UnixMilli())
+	m := utils.PingMessage(uint64(timestamp.UnixMilli()))
 	// Ignore any errors. If we can't send a ping we'll reconnect anyway.
-	w.client.Send(m)
+	w.client.SendBytes(m)
 }

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
@@ -14,12 +15,12 @@ type Client struct {
 	// addr is the address of the figg service.
 	addr string
 	// conn is the connection to a figg server or nil if not connected.
-	conn Connection
+	conn utils.Connection
 	// connectAttempts is the number of attempts to connect to figg without
 	// being able to connect.
 	connectAttempts int
 
-	messageCb func(m *ProtocolMessage)
+	messageCb func(messageType utils.MessageType, payload []byte)
 	stateCb   func(s State)
 
 	outgoing [][]byte
@@ -32,7 +33,7 @@ type Client struct {
 	logger *zap.Logger
 }
 
-func NewClient(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessage), stateCb func(s State)) *Client {
+func NewClient(addr string, logger *zap.Logger, messageCb func(messageType utils.MessageType, payload []byte), stateCb func(s State)) *Client {
 	mu := &sync.Mutex{}
 	client := &Client{
 		addr:            addr,
@@ -55,19 +56,9 @@ func NewClient(addr string, logger *zap.Logger, messageCb func(m *ProtocolMessag
 	return client
 }
 
-func (c *Client) Send(m *ProtocolMessage) error {
+func (c *Client) SendBytes(b []byte) error {
 	if c.conn == nil {
 		return fmt.Errorf("client not connected")
-	}
-
-	c.logger.Debug(
-		"send message",
-		zap.Object("message", m),
-	)
-
-	b, err := m.Encode()
-	if err != nil {
-		return err
 	}
 
 	c.mu.Lock()
@@ -107,7 +98,7 @@ func (c *Client) readLoop() {
 			c.stateCb(StateConnected)
 		}
 
-		m, err := c.recv()
+		messageType, payload, err := c.recv()
 		if err != nil {
 			// If we've been shutdown ignore the error and exit.
 			if s := atomic.LoadInt32(&c.shutdown); s == 1 {
@@ -122,7 +113,7 @@ func (c *Client) readLoop() {
 			continue
 		}
 
-		c.messageCb(m)
+		c.messageCb(messageType, payload)
 	}
 }
 
@@ -160,7 +151,7 @@ func (c *Client) connect() error {
 
 	<-time.After(backoff)
 
-	conn, err := TCPConnect(c.addr)
+	conn, err := utils.TCPConnect(c.addr)
 	if err != nil {
 		c.connectAttempts += 1
 
@@ -175,13 +166,8 @@ func (c *Client) connect() error {
 	return nil
 }
 
-func (c *Client) recv() (*ProtocolMessage, error) {
-	b, err := c.conn.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	return ProtocolMessageFromBytes(b)
+func (c *Client) recv() (utils.MessageType, []byte, error) {
+	return c.conn.Recv()
 }
 
 func (c *Client) getBackoffTimeout(n int) time.Duration {

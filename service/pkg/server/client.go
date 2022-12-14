@@ -2,15 +2,16 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/utils"
 )
 
-func RequestContext(requestType conn.MessageType) context.Context {
+func RequestContext(requestType utils.MessageType) context.Context {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "timestamp", time.Now().UnixNano())
 	ctx = context.WithValue(ctx, "type", requestType)
@@ -28,7 +29,30 @@ func NewClientAttachment(client *Client) topic.Attachment {
 }
 
 func (a *ClientAttachment) Send(ctx context.Context, m topic.Message) {
-	a.client.Send(ctx, conn.NewPayloadMessage(m.Topic, m.Offset, m.Message))
+	topicPrefix := make([]byte, 2)
+	binary.BigEndian.PutUint16(topicPrefix, uint16(len(m.Topic)))
+
+	offsetPrefix := make([]byte, 2)
+	binary.BigEndian.PutUint16(offsetPrefix, uint16(len(m.Offset)))
+
+	messagePrefix := make([]byte, 4)
+	binary.BigEndian.PutUint32(messagePrefix, uint32(len(m.Message)))
+
+	header := make([]byte, 8)
+	binary.BigEndian.PutUint16(header[:2], uint16(utils.TypePayload))
+
+	messageLen := uint32(2 + len(m.Topic) + 2 + len(m.Offset) + 4 + len(m.Message))
+
+	buf := []byte{}
+	buf = append(buf, utils.MessageHeader(utils.TypePayload, messageLen)...)
+	buf = append(buf, topicPrefix...)
+	buf = append(buf, []byte(m.Topic)...)
+	buf = append(buf, offsetPrefix...)
+	buf = append(buf, []byte(m.Offset)...)
+	buf = append(buf, messagePrefix...)
+	buf = append(buf, []byte(m.Message)...)
+
+	a.client.Send(ctx, buf)
 }
 
 type Outgoing struct {
@@ -37,7 +61,7 @@ type Outgoing struct {
 }
 
 type Client struct {
-	conn          conn.Connection
+	conn          utils.Connection
 	broker        *topic.Broker
 	subscriptions *topic.Subscriptions
 	outgoing      []Outgoing
@@ -45,7 +69,7 @@ type Client struct {
 	cv            *sync.Cond
 }
 
-func NewClient(conn conn.Connection, broker *topic.Broker) *Client {
+func NewClient(conn utils.Connection, broker *topic.Broker) *Client {
 	mu := &sync.Mutex{}
 	c := &Client{
 		conn:     conn,
@@ -59,12 +83,7 @@ func NewClient(conn conn.Connection, broker *topic.Broker) *Client {
 	return c
 }
 
-func (c *Client) Send(ctx context.Context, m *conn.ProtocolMessage) error {
-	b, err := m.Encode()
-	if err != nil {
-		return err
-	}
-
+func (c *Client) Send(ctx context.Context, b []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -88,22 +107,99 @@ func (c *Client) Shutdown() {
 
 func (c *Client) readLoop() error {
 	for {
-		b, err := c.conn.Recv()
+		messageType, b, err := c.conn.Recv()
 		if err != nil {
 			// Assume the connection is closed so just return from the
 			// read loop (which will cause the client to shutdown).
 			return err
 		}
-
-		m, err := conn.ProtocolMessageFromBytes(b)
-		if err != nil {
+		if err = c.handleMessage(messageType, b); err != nil {
 			return err
 		}
-
-		ctx := RequestContext(m.Type)
-
-		c.handleIncoming(ctx, m)
 	}
+}
+
+func (c *Client) handleMessage(messageType utils.MessageType, b []byte) error {
+	switch messageType {
+	case utils.TypeAttach:
+		return c.handleAttachMessage(b)
+	case utils.TypePublish:
+		return c.handlePublishMessage(b)
+	}
+	return nil
+}
+
+func (c *Client) handleAttachMessage(b []byte) error {
+	ctx := RequestContext(utils.TypeAttach)
+
+	topicLen := binary.BigEndian.Uint16(b[0:2])
+	topic := string(b[2 : 2+topicLen])
+
+	offsetLen := binary.BigEndian.Uint16(b[2+topicLen : 2+topicLen+2])
+	offsetStr := string(b[2+topicLen+2 : 2+topicLen+2+offsetLen])
+
+	if offsetStr != "" {
+		offset, err := strconv.ParseUint(offsetStr, 10, 64)
+		if err != nil {
+			// If the offset is invalid subscribe without.
+			c.subscriptions.AddSubscription(topic)
+		} else {
+			c.subscriptions.AddSubscriptionFromOffset(topic, offset)
+		}
+	} else {
+		c.subscriptions.AddSubscription(topic)
+	}
+
+	topicPrefix := make([]byte, 2)
+	binary.BigEndian.PutUint16(topicPrefix, uint16(len(topic)))
+
+	messageLen := uint32(2 + len(topic))
+
+	buf := []byte{}
+	buf = append(buf, utils.MessageHeader(utils.TypeAttached, messageLen)...)
+	buf = append(buf, topicPrefix...)
+	buf = append(buf, []byte(topic)...)
+
+	c.Send(ctx, buf)
+
+	return nil
+}
+
+func (c *Client) handlePublishMessage(b []byte) error {
+	ctx := RequestContext(utils.TypePublish)
+
+	offset := 0
+
+	topicLen := binary.BigEndian.Uint16(b[offset : offset+2])
+	offset += 2
+	topicName := string(b[offset : offset+int(topicLen)])
+	offset += int(topicLen)
+
+	seqNum := binary.BigEndian.Uint64(b[offset : offset+8])
+	offset += 8
+
+	payloadLen := binary.BigEndian.Uint32(b[offset : offset+4])
+	offset += 4
+	payload := b[offset : offset+int(payloadLen)]
+
+	topic, err := c.broker.GetTopic(topicName)
+	if err != nil {
+		// TODO(AD)
+	}
+	if err := topic.Publish(payload); err != nil {
+		// TODO(AD)
+	}
+
+	seqNumEnc := make([]byte, 8)
+	binary.BigEndian.PutUint64(seqNumEnc, seqNum)
+
+	buf := []byte{}
+	buf = append(buf, utils.MessageHeader(utils.TypeACK, 8)...)
+	buf = append(buf, seqNumEnc...)
+
+	c.Send(ctx, buf)
+
+	return nil
 }
 
 func (c *Client) writeLoop() {
@@ -124,39 +220,6 @@ func (c *Client) writeLoop() {
 				return
 			}
 		}
-	}
-}
-
-func (c *Client) handleIncoming(ctx context.Context, m *conn.ProtocolMessage) {
-	switch m.Type {
-	case conn.TypePing:
-		c.Send(ctx, conn.NewPongMessage(m.Ping.Timestamp))
-	case conn.TypeAttach:
-		if m.Attach.Offset != "" {
-			offset, err := strconv.ParseUint(m.Attach.Offset, 10, 64)
-			if err != nil {
-				// If the offset is invalid subscribe without.
-				c.subscriptions.AddSubscription(m.Attach.Topic)
-			} else {
-				c.subscriptions.AddSubscriptionFromOffset(m.Attach.Topic, offset)
-			}
-		} else {
-			c.subscriptions.AddSubscription(m.Attach.Topic)
-		}
-		c.Send(ctx, conn.NewAttachedMessage(m.Attach.Topic))
-	case conn.TypeDetach:
-		// TODO(AD) Unsubscribe
-		c.Send(ctx, conn.NewDetachedMessage())
-	case conn.TypePublish:
-		topic, err := c.broker.GetTopic(m.Publish.Topic)
-		if err != nil {
-			// TODO(AD)
-		}
-		if err := topic.Publish(m.Publish.Payload); err != nil {
-			// TODO(AD)
-		}
-		message := conn.NewACKMessage(m.Publish.SeqNum)
-		c.Send(ctx, message)
 	}
 }
 

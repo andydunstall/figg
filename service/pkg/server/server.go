@@ -3,8 +3,8 @@ package server
 import (
 	"net"
 
-	"github.com/andydunstall/figg/service/pkg/conn"
 	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +28,7 @@ func (s *Server) stream(c net.Conn) {
 		zap.String("addr", addr),
 	)
 
-	client := NewClient(conn.NewTCPConnection(c), s.broker)
+	client := NewClient(utils.NewTCPConnection(c), s.broker)
 	defer client.Shutdown()
 
 	client.Serve()

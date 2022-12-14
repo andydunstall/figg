@@ -1,7 +1,7 @@
-package conn
+package utils
 
 type Connection interface {
 	Send(b []byte) error
-	Recv() ([]byte, error)
+	Recv() (MessageType, []byte, error)
 	Close() error
 }

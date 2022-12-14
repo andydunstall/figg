@@ -10,6 +10,11 @@ pushd sdk
 	echo "sdk ok"
 popd
 
+pushd utils
+	go fmt ./... || exit 1
+	echo "utils ok"
+popd
+
 pushd cli
 	go fmt ./... || exit 1
 	echo "cli ok"
