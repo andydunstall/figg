@@ -83,7 +83,7 @@ func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
 	stateSubscriber := figg.NewChannelStateSubscriber()
 	logger, _ := zap.NewDevelopment()
 	client, err := figg.NewFigg(&figg.Config{
-		Addr:            cluster.Nodes[0].Addr,
+		Addr:            cluster.Nodes[0].ProxyAddr,
 		StateSubscriber: stateSubscriber,
 		Logger:          logger,
 	})
@@ -99,11 +99,11 @@ func TestConnection_ReconnectAfterDisconnected(t *testing.T) {
 		Duration: 3,
 	})
 
-	evt, ok = waitForStateWithTimeout(stateSubscriber, 5*time.Second)
+	evt, ok = waitForStateWithTimeout(stateSubscriber, 10*time.Second)
 	assert.True(t, ok)
 	assert.Equal(t, figg.StateDisconnected, evt)
 
-	evt, ok = waitForStateWithTimeout(stateSubscriber, 5*time.Second)
+	evt, ok = waitForStateWithTimeout(stateSubscriber, 10*time.Second)
 	assert.True(t, ok)
 	assert.Equal(t, figg.StateConnected, evt)
 }

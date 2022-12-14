@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/andydunstall/figg/fcm/sdk"
 	"github.com/andydunstall/figg/sdk"
@@ -28,7 +27,7 @@ func TestTopic_PublishSubscribe(t *testing.T) {
 	assert.Nil(t, err)
 	defer client.Shutdown()
 
-	messageCh := make(chan []byte)
+	messageCh := make(chan []byte, 1)
 	client.Subscribe(context.Background(), "foo", func(topic string, m []byte) {
 		messageCh <- m
 	})
@@ -65,13 +64,10 @@ func TestTopic_ResumeAfterDisconnect(t *testing.T) {
 	assert.Nil(t, err)
 	defer subscriberClient.Shutdown()
 
-	messageCh := make(chan []byte)
+	messageCh := make(chan []byte, 64)
 	subscriberClient.Subscribe(context.Background(), "foo", func(topic string, m []byte) {
 		messageCh <- m
 	})
-
-	// TODO(AD) Wait for subscribe to become attached.
-	<-time.After(time.Second)
 
 	// Publish a message and wait to receive.
 	publisherClient.Publish(context.Background(), "foo", []byte("bar"))
