@@ -10,6 +10,7 @@ var (
 
 type FiggConfig struct {
 	Addr string
+	Verbose bool
 }
 
 type FiggCommand struct {
@@ -24,6 +25,7 @@ func NewFiggCommand() *FiggCommand {
 	}
 	config := &FiggConfig{}
 	cobraCmd.PersistentFlags().StringVar(&config.Addr, "addr", "127.0.0.1:8119", "figg cluster address")
+	cobraCmd.PersistentFlags().BoolVar(&config.Verbose, "verbose", false, "show verbose debug output")
 	return &FiggCommand{
 		Config:   config,
 		cobraCmd: cobraCmd,

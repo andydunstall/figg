@@ -223,6 +223,7 @@ func (c *BenchCommand) connectedClient(ctx context.Context) (*figg.Figg, error) 
 	client, err := figg.NewFigg(&figg.Config{
 		Addr:            c.Config.Addr,
 		StateSubscriber: stateSub,
+		Logger: setupLogger(c.Config.Verbose),
 	})
 	if err != nil {
 		return nil, err

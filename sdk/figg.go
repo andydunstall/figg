@@ -155,13 +155,19 @@ func newFigg(config *Config) (*Figg, error) {
 }
 
 func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
-
 	// Publish messages must be acknowledged so add a sequence number and queue.
 	seqNum := w.seqNum
 	w.seqNum++
 
 	buf := utils.PublishMessage(topic, seqNum, m)
 	w.pendingMessages.Push(buf, seqNum, cb)
+
+	w.logger.Debug(
+		"sending payload message",
+		zap.String("topic", topic),
+		zap.Uint64("seq-num", seqNum),
+		zap.Int("payload-len", len(m)),
+	)
 
 	// Ignore errors. If we fail to send we'll retry.
 	w.client.SendBytes(buf)
@@ -175,6 +181,12 @@ func (w *Figg) attachFromOffset(topic string, offset string, cb func()) {
 	if cb != nil {
 		w.pendingAttaches.Push(topic, cb)
 	}
+
+	w.logger.Debug(
+		"sending attach message",
+		zap.String("topic", topic),
+		zap.String("offset", offset),
+	)
 
 	buf := utils.AttachMessage(topic, offset)
 
@@ -235,6 +247,13 @@ func (w *Figg) onPayloadMessage(b []byte) {
 	offset += 4
 	payload := b[offset : offset+int(payloadLen)]
 
+	w.logger.Debug(
+		"on payload message",
+		zap.String("topic", topicName),
+		zap.String("offset", messageOffset),
+		zap.Int("payload-len", len(payload)),
+	)
+
 	w.topics.OnMessage(topicName, payload, messageOffset)
 }
 
@@ -242,6 +261,12 @@ func (w *Figg) onACKMessage(b []byte) {
 	offset := 0
 
 	seqNum := binary.BigEndian.Uint64(b[offset : offset+8])
+
+	w.logger.Debug(
+		"on ack message",
+		zap.Uint64("seq-num", seqNum),
+	)
+
 	w.pendingMessages.Acknowledge(seqNum)
 }
 
@@ -252,6 +277,11 @@ func (w *Figg) onAttachedMessage(b []byte) {
 	offset += 2
 	topicName := string(b[offset : offset+int(topicLen)])
 	offset += int(topicLen)
+
+	w.logger.Debug(
+		"on attached message",
+		zap.String("topic", topicName),
+	)
 
 	w.pendingAttaches.Attached(topicName)
 }
@@ -271,10 +301,15 @@ func (w *Figg) onConnState(s State) {
 func (w *Figg) onConnected() {
 	// Reattach all subscribed topics.
 	for _, topic := range w.topics.Topics() {
-		w.logger.Debug("reattaching", zap.String("topic", topic))
+		offset := w.topics.Offset(topic)
+		w.logger.Debug(
+			"reattaching",
+			zap.String("topic", topic),
+			zap.String("offset", offset),
+		)
 		// Ignore errors. If we arn't connected so the send fails, when we
 		// reconnect all subscribed topics are reattached.
-		w.attachFromOffset(topic, w.topics.Offset(topic), nil)
+		w.attachFromOffset(topic, offset, nil)
 	}
 
 	// Send all unacknowledged messages.
