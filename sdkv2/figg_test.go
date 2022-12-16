@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type ErrorDialer struct {}
+type ErrorDialer struct{}
 
 func (d *ErrorDialer) Dial(network string, address string) (net.Conn, error) {
 	return nil, errors.New("failed to connect")

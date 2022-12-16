@@ -9,7 +9,7 @@ var (
 )
 
 type FiggConfig struct {
-	Addr string
+	Addr    string
 	Verbose bool
 }
 

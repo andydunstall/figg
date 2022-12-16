@@ -9,7 +9,7 @@ replace github.com/andydunstall/figg/sdk => ../sdk
 require (
 	github.com/andydunstall/figg/fcm/sdk v0.0.0
 	github.com/stretchr/testify v1.8.1
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.24.0
 )
 
 require (
@@ -27,4 +27,5 @@ require github.com/andydunstall/figg/utils v0.0.0 // indirect
 replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
 
 require github.com/andydunstall/figg/sdkv2 v0.0.0
+
 replace github.com/andydunstall/figg/sdkv2 => ../sdkv2
