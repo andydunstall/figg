@@ -1,18 +1,13 @@
 package figg
 
 import (
-	"net"
 	"sync"
 	"sync/atomic"
-
-	"go.uber.org/zap"
 )
 
 type Figg struct {
 	opts *Options
-	conn net.Conn
-	// reader reads bytes from the connection.
-	reader *reader
+	conn *connection
 
 	// shutdown is an atomic flag indicating if the client has been shutdown.
 	shutdown int32
@@ -26,22 +21,13 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 		opt(opts)
 	}
 
-	conn, err := opts.Dialer.Dial("tcp", addr)
-	if err != nil {
-		opts.Logger.Error(
-			"initial connection failed",
-			zap.String("addr", addr),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-	opts.Logger.Debug("initial connection ok", zap.String("addr", addr))
-
 	figg := &Figg{
 		opts:     opts,
-		conn:     conn,
-		reader:   newReader(conn, opts.ReadBufLen),
+		conn:     newConnection(opts),
 		shutdown: 0,
+	}
+	if err := figg.conn.Connect(); err != nil {
+		return nil, err
 	}
 
 	figg.wg.Add(1)
@@ -68,13 +54,11 @@ func (f *Figg) readLoop() {
 	defer f.wg.Done()
 
 	for {
-		_, err := f.reader.Read()
+		_, err := f.conn.Read()
 		if err != nil {
 			if s := atomic.LoadInt32(&f.shutdown); s == 1 {
 				return
 			}
-
-			f.opts.Logger.Warn("connection closed unexpectedly", zap.Error(err))
 		}
 	}
 }
