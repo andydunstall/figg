@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -40,6 +41,8 @@ type connection struct {
 
 	// shutdown is an atomic flag indicating if the client has been shutdown.
 	shutdown int32
+	// done is a channel used to interrupt reconnect backoff.
+	done chan interface{}
 
 	// mu is a mutex protecting the below fields (only locked if the fields
 	// are swapped out, should not be held during IO).
@@ -55,6 +58,7 @@ func newConnection(onStateChange func(state ConnState), opts *Options) *connecti
 		onStateChange: onStateChange,
 		opts:          opts,
 		shutdown:      0,
+		done:          make(chan interface{}),
 		mu:            sync.Mutex{},
 		conn:          nil,
 		reader:        nil,
@@ -94,14 +98,53 @@ func (c *connection) Read() ([]byte, error) {
 			zap.String("addr", c.opts.Addr),
 			zap.Error(err),
 		)
+		c.onDisconnect()
 		return nil, err
 	}
 	return b, nil
 }
 
+func (c *connection) Reconnect() {
+	attempts := 0
+	for {
+		// If we are shut down give up.
+		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
+			return
+		}
+
+		conn, err := c.opts.Dialer.Dial("tcp", c.opts.Addr)
+		if err == nil {
+			c.opts.Logger.Debug("reconnect ok", zap.String("addr", c.opts.Addr))
+			c.onConnect(conn)
+			return
+		}
+
+		attempts += 1
+		backoff := c.opts.ReconnectBackoffCB(attempts)
+
+		c.opts.Logger.Error(
+			"reconnect failed",
+			zap.String("addr", c.opts.Addr),
+			zap.Int("attempts", attempts),
+			zap.Int64("backoff", backoff.Milliseconds()),
+			zap.Error(err),
+		)
+
+		// If the connection is closed exit immediately.
+		select {
+		case <-time.After(backoff):
+			continue
+		case <-c.done:
+			return
+		}
+	}
+}
+
 func (c *connection) Close() error {
 	// This will avoid log spam about errors when we shut down.
 	atomic.StoreInt32(&c.shutdown, 1)
+
+	close(c.done)
 
 	return c.onDisconnect()
 }

@@ -14,7 +14,10 @@ func TestConnect_ConnectThenClose(t *testing.T) {
 	assert.Nil(t, err)
 	defer fcmClient.RemoveCluster(cluster.ID)
 
-	client, err := figg.Connect(cluster.Nodes[0].Addr, figg.WithLogger(setupLogger()))
+	client, err := figg.Connect(
+		cluster.Nodes[0].Addr,
+		figg.WithLogger(setupLogger()),
+	)
 	assert.Nil(t, err)
 	defer client.Close()
 }

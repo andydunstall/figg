@@ -1,11 +1,17 @@
 package figg
 
 import (
+	"math/rand"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 type Figg struct {
 	opts *Options
@@ -61,13 +67,24 @@ func (f *Figg) readLoop() {
 			if s := atomic.LoadInt32(&f.shutdown); s == 1 {
 				return
 			}
+
+			f.conn.Reconnect()
 		}
 	}
 }
 
 func (f *Figg) onConnStateChange(state ConnState) {
+	// Avoid logging if we've been shutdown.
+	if s := atomic.LoadInt32(&f.shutdown); s == 1 {
+		return
+	}
+
 	f.opts.Logger.Debug(
 		"connection state change",
 		zap.String("state", state.String()),
 	)
+
+	if f.opts.ConnStateChangeCB != nil {
+		f.opts.ConnStateChangeCB(state)
+	}
 }
