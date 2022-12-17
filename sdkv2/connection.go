@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 )
@@ -34,7 +35,11 @@ func (r *reader) Read() ([]byte, error) {
 }
 
 type connection struct {
-	opts *Options
+	onStateChange func(state ConnState)
+	opts          *Options
+
+	// shutdown is an atomic flag indicating if the client has been shutdown.
+	shutdown int32
 
 	// mu is a mutex protecting the below fields (only locked if the fields
 	// are swapped out, should not be held during IO).
@@ -45,12 +50,14 @@ type connection struct {
 	reader *reader
 }
 
-func newConnection(opts *Options) *connection {
+func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
 	return &connection{
-		opts:   opts,
-		mu:     sync.Mutex{},
-		conn:   nil,
-		reader: nil,
+		onStateChange: onStateChange,
+		opts:          opts,
+		shutdown:      0,
+		mu:            sync.Mutex{},
+		conn:          nil,
+		reader:        nil,
 	}
 }
 
@@ -65,7 +72,7 @@ func (c *connection) Connect() error {
 		return err
 	}
 
-	c.connect(conn)
+	c.onConnect(conn)
 
 	return nil
 }
@@ -78,6 +85,10 @@ func (c *connection) Read() ([]byte, error) {
 
 	b, err := c.reader.Read()
 	if err != nil {
+		// Avoid logging if we are shutdown.
+		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
+			return nil, err
+		}
 		c.opts.Logger.Warn(
 			"connection closed unexpectedly",
 			zap.String("addr", c.opts.Addr),
@@ -89,22 +100,23 @@ func (c *connection) Read() ([]byte, error) {
 }
 
 func (c *connection) Close() error {
-	return c.disconnect()
+	// This will avoid log spam about errors when we shut down.
+	atomic.StoreInt32(&c.shutdown, 1)
+
+	return c.onDisconnect()
 }
 
-func (c *connection) connect(conn net.Conn) {
-	c.opts.Logger.Debug("connected", zap.String("addr", c.opts.Addr))
-
+func (c *connection) onConnect(conn net.Conn) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.conn = conn
 	c.reader = newReader(conn, c.opts.ReadBufLen)
+
+	c.onStateChange(CONNECTED)
 }
 
-func (c *connection) disconnect() error {
-	c.opts.Logger.Debug("disconnected", zap.String("addr", c.opts.Addr))
-
+func (c *connection) onDisconnect() error {
 	if c.conn == nil {
 		return nil
 	}
@@ -116,6 +128,8 @@ func (c *connection) disconnect() error {
 
 	c.conn = nil
 	c.reader = nil
+
+	c.onStateChange(DISCONNECTED)
 
 	return err
 }

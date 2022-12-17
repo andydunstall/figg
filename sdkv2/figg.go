@@ -3,6 +3,8 @@ package figg
 import (
 	"sync"
 	"sync/atomic"
+
+	"go.uber.org/zap"
 )
 
 type Figg struct {
@@ -23,9 +25,9 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 
 	figg := &Figg{
 		opts:     opts,
-		conn:     newConnection(opts),
 		shutdown: 0,
 	}
+	figg.conn = newConnection(figg.onConnStateChange, opts)
 	if err := figg.conn.Connect(); err != nil {
 		return nil, err
 	}
@@ -61,4 +63,11 @@ func (f *Figg) readLoop() {
 			}
 		}
 	}
+}
+
+func (f *Figg) onConnStateChange(state ConnState) {
+	f.opts.Logger.Debug(
+		"connection state change",
+		zap.String("state", state.String()),
+	)
 }
