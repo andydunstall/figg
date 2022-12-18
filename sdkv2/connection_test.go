@@ -128,7 +128,6 @@ func TestConnection_ReattachPendingAttachmentOnReconnect(t *testing.T) {
 	assert.True(t, attached)
 }
 
-
 func TestConnection_ReattachPendingAttachmentFromOffsetOnReconnect(t *testing.T) {
 	fakeConn := &fakeConn{}
 	conn := newFakeConnection(fakeConn)

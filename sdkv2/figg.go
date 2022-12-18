@@ -35,7 +35,7 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	}
 
 	figg := &Figg{
-		opts: opts,
+		opts:     opts,
 		shutdown: 0,
 	}
 	figg.conn = newConnection(figg.onConnStateChange, opts)
@@ -52,14 +52,13 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 // Subscribe to the given topic.
 //
 // Note only one subscriber is allowed per topic.
-func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption)  {
+func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption) {
 	opts := defaultTopicOptions()
 	for _, opt := range options {
 		opt(opts)
 	}
 
 	// TODO(AD) Err if already attached.
-
 
 	ch := make(chan interface{}, 1)
 	onAttached := func() {
@@ -75,11 +74,8 @@ func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOptio
 }
 
 func (f *Figg) Unsubscribe(topic string) {
-	// TODO(AD)
-	// send DETACH (don't wait for a response)
-	// keep pending detach to resend of fails
-	// topic.NotifyDetached
-	// delete topics[topic]
+	// Note doesn't wait for a response.
+	f.conn.Detach(topic)
 }
 
 func (f *Figg) Close() error {

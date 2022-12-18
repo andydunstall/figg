@@ -7,45 +7,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAttachments_Pending(t *testing.T) {
+func TestAttachments_Attaching(t *testing.T) {
 	attachments := newAttachments()
 
 	onAttach := func() {}
-	attachments.AddPending("foo", onAttach)
-	attachments.AddPendingFromOffset("bar", 10, onAttach)
-	attachments.AddPending("car", onAttach)
+	attachments.AddAttaching("foo", onAttach)
+	attachments.AddAttachingFromOffset("bar", 10, onAttach)
+	attachments.AddAttaching("car", onAttach)
 
-	// After becoming attached the topic 'car' should no longer be pending.
+	// After becoming attached the topic 'car' should no longer be Attaching.
 	attachments.OnAttached("car", 20)
 
-	pending := attachments.Pending()
+	Attaching := attachments.Attaching()
 
 	// Sort as order undefined.
-	sort.Slice(pending, func(i, j int) bool {
-	  return pending[i].Name < pending[j].Name
+	sort.Slice(Attaching, func(i, j int) bool {
+		return Attaching[i].Name < Attaching[j].Name
 	})
 
-	assert.Equal(t, 2, len(pending))
+	assert.Equal(t, 2, len(Attaching))
 
-	assert.Equal(t, "bar", pending[0].Name)
-	assert.Equal(t, true, pending[0].FromOffset)
-	assert.Equal(t, uint64(10), pending[0].Offset)
+	assert.Equal(t, "bar", Attaching[0].Name)
+	assert.Equal(t, true, Attaching[0].FromOffset)
+	assert.Equal(t, uint64(10), Attaching[0].Offset)
 
-	assert.Equal(t, "foo", pending[1].Name)
-	assert.Equal(t, false, pending[1].FromOffset)
+	assert.Equal(t, "foo", Attaching[1].Name)
+	assert.Equal(t, false, Attaching[1].FromOffset)
 }
 
-// Tests when a pending topic is attached it becomes active.
+// Tests when a Attaching topic is attached it becomes Attached.
 func TestAttachments_OnAttached(t *testing.T) {
 	attachments := newAttachments()
 
 	fooAttached := false
-	attachments.AddPending("foo", func() {
+	attachments.AddAttaching("foo", func() {
 		fooAttached = true
 	})
 
 	barAttached := false
-	attachments.AddPendingFromOffset("bar", 10, func() {
+	attachments.AddAttachingFromOffset("bar", 10, func() {
 		barAttached = true
 	})
 
@@ -55,20 +55,20 @@ func TestAttachments_OnAttached(t *testing.T) {
 	assert.True(t, fooAttached)
 	assert.True(t, barAttached)
 
-	assert.Equal(t, 0, len(attachments.Pending()))
+	assert.Equal(t, 0, len(attachments.Attaching()))
 
-	active := attachments.Active()
+	Attached := attachments.Attached()
 
 	// Sort as order undefined.
-	sort.Slice(active, func(i, j int) bool {
-	  return active[i].Name < active[j].Name
+	sort.Slice(Attached, func(i, j int) bool {
+		return Attached[i].Name < Attached[j].Name
 	})
 
-	assert.Equal(t, 2, len(active))
+	assert.Equal(t, 2, len(Attached))
 
-	assert.Equal(t, "bar", active[0].Name)
-	assert.Equal(t, uint64(10), active[0].Offset)
+	assert.Equal(t, "bar", Attached[0].Name)
+	assert.Equal(t, uint64(10), Attached[0].Offset)
 
-	assert.Equal(t, "foo", active[1].Name)
-	assert.Equal(t, uint64(20), active[1].Offset)
+	assert.Equal(t, "foo", Attached[1].Name)
+	assert.Equal(t, uint64(20), Attached[1].Offset)
 }

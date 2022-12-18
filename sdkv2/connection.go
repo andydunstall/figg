@@ -58,14 +58,14 @@ type connection struct {
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
 	return &connection{
-		onStateChange:      onStateChange,
-		opts:               opts,
-		attachments: newAttachments(),
-		shutdown:           0,
-		done:               make(chan interface{}),
-		mu:                 sync.Mutex{},
-		conn:               nil,
-		reader:             nil,
+		onStateChange: onStateChange,
+		opts:          opts,
+		attachments:   newAttachments(),
+		shutdown:      0,
+		done:          make(chan interface{}),
+		mu:            sync.Mutex{},
+		conn:          nil,
+		reader:        nil,
 	}
 }
 
@@ -87,9 +87,9 @@ func (c *connection) Connect() error {
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
 	// Register for an ATTACHED response. Note if sending the ATTACH message
-	// fails (eg due to disconnecting), we'll retry all registed pending
+	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
-	if err := c.attachments.AddPending(name, onAttached); err != nil {
+	if err := c.attachments.AddAttaching(name, onAttached); err != nil {
 		return err
 	}
 
@@ -100,15 +100,18 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 
 func (c *connection) AttachFromOffset(name string, offset uint64, onAttached func(), onMessage MessageCB) error {
 	// Register for an ATTACHED response. Note if sending the ATTACH message
-	// fails (eg due to disconnecting), we'll retry all registed pending
+	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
-	if err := c.attachments.AddPendingFromOffset(name, offset, onAttached); err != nil {
+	if err := c.attachments.AddAttachingFromOffset(name, offset, onAttached); err != nil {
 		return err
 	}
 
 	// Ignore any errors as we'll resend on reattach.
 	c.conn.Write(encodeAttachFromOffsetMessage(name, offset))
 	return nil
+}
+
+func (c *connection) Detach(name string) {
 }
 
 // Read bytes from the connection. Must only be called from a single goroutine.
@@ -207,17 +210,19 @@ func (c *connection) onConnect(conn net.Conn) {
 		c.onStateChange(CONNECTED)
 	}
 
-	for _, pending := range c.attachments.Pending() {
-		if pending.FromOffset {
-			c.conn.Write(encodeAttachFromOffsetMessage(pending.Name, pending.Offset))
+	for _, att := range c.attachments.Attaching() {
+		if att.FromOffset {
+			c.conn.Write(encodeAttachFromOffsetMessage(att.Name, att.Offset))
 		} else {
-			c.conn.Write(encodeAttachMessage(pending.Name))
+			c.conn.Write(encodeAttachMessage(att.Name))
 		}
 	}
 
-	for _, active := range c.attachments.Active() {
-		c.conn.Write(encodeAttachFromOffsetMessage(active.Name, active.Offset))
+	for _, att := range c.attachments.Attached() {
+		c.conn.Write(encodeAttachFromOffsetMessage(att.Name, att.Offset))
 	}
+
+	// TODO resend detached
 }
 
 func (c *connection) onDisconnect() error {

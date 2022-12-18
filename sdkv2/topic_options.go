@@ -18,7 +18,7 @@ func WithOffset(offset uint64) TopicOption {
 
 func defaultTopicOptions() *TopicOptions {
 	return &TopicOptions{
-		Offset:        0,
-		FromOffset:    false,
+		Offset:     0,
+		FromOffset: false,
 	}
 }
