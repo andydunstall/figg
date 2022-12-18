@@ -27,6 +27,7 @@ func newReader(r io.Reader, bufLen int) *reader {
 	}
 }
 
+// Reads bytes from the reader. Must only call from one goroutine.
 func (r *reader) Read() ([]byte, error) {
 	n, err := r.r.Read(r.buf)
 	if err != nil {
@@ -38,6 +39,8 @@ func (r *reader) Read() ([]byte, error) {
 type connection struct {
 	onStateChange func(state ConnState)
 	opts          *Options
+
+	attachments *attachments
 
 	// shutdown is an atomic flag indicating if the client has been shutdown.
 	shutdown int32
@@ -55,13 +58,14 @@ type connection struct {
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
 	return &connection{
-		onStateChange: onStateChange,
-		opts:          opts,
-		shutdown:      0,
-		done:          make(chan interface{}),
-		mu:            sync.Mutex{},
-		conn:          nil,
-		reader:        nil,
+		onStateChange:      onStateChange,
+		opts:               opts,
+		attachments: newAttachments(),
+		shutdown:           0,
+		done:               make(chan interface{}),
+		mu:                 sync.Mutex{},
+		conn:               nil,
+		reader:             nil,
 	}
 }
 
@@ -81,17 +85,44 @@ func (c *connection) Connect() error {
 	return nil
 }
 
+func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
+	// Register for an ATTACHED response. Note if sending the ATTACH message
+	// fails (eg due to disconnecting), we'll retry all registed pending
+	// attachments.
+	if err := c.attachments.AddPending(name, onAttached); err != nil {
+		return err
+	}
+
+	// Ignore any errors as we'll resend on reattach.
+	c.conn.Write(encodeAttachMessage(name))
+	return nil
+}
+
+func (c *connection) AttachFromOffset(name string, offset uint64, onAttached func(), onMessage MessageCB) error {
+	// Register for an ATTACHED response. Note if sending the ATTACH message
+	// fails (eg due to disconnecting), we'll retry all registed pending
+	// attachments.
+	if err := c.attachments.AddPendingFromOffset(name, offset, onAttached); err != nil {
+		return err
+	}
+
+	// Ignore any errors as we'll resend on reattach.
+	c.conn.Write(encodeAttachFromOffsetMessage(name, offset))
+	return nil
+}
+
 // Read bytes from the connection. Must only be called from a single goroutine.
-func (c *connection) Read() ([]byte, error) {
+func (c *connection) Recv() error {
+	// TODO(AD) not protected
 	if c.reader == nil {
-		return nil, ErrNotConnected
+		return ErrNotConnected
 	}
 
 	b, err := c.reader.Read()
 	if err != nil {
 		// Avoid logging if we are shutdown.
 		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
-			return nil, err
+			return err
 		}
 		c.opts.Logger.Warn(
 			"connection closed unexpectedly",
@@ -99,9 +130,25 @@ func (c *connection) Read() ([]byte, error) {
 			zap.Error(err),
 		)
 		c.onDisconnect()
-		return nil, err
+		return err
 	}
-	return b, nil
+
+	// TODO(AD) handle fragmentation
+
+	messageType, _, _ := decodeHeader(b)
+
+	switch messageType {
+	case TypeAttached:
+		offset := headerLen
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+		topicOffset, offset := decodeUint64(b, offset)
+
+		c.attachments.OnAttached(topicName, topicOffset)
+	}
+
+	return nil
 }
 
 func (c *connection) Reconnect() {
@@ -156,7 +203,21 @@ func (c *connection) onConnect(conn net.Conn) {
 	c.conn = conn
 	c.reader = newReader(conn, c.opts.ReadBufLen)
 
-	c.onStateChange(CONNECTED)
+	if c.onStateChange != nil {
+		c.onStateChange(CONNECTED)
+	}
+
+	for _, pending := range c.attachments.Pending() {
+		if pending.FromOffset {
+			c.conn.Write(encodeAttachFromOffsetMessage(pending.Name, pending.Offset))
+		} else {
+			c.conn.Write(encodeAttachMessage(pending.Name))
+		}
+	}
+
+	for _, active := range c.attachments.Active() {
+		c.conn.Write(encodeAttachFromOffsetMessage(active.Name, active.Offset))
+	}
 }
 
 func (c *connection) onDisconnect() error {
@@ -172,7 +233,9 @@ func (c *connection) onDisconnect() error {
 	c.conn = nil
 	c.reader = nil
 
-	c.onStateChange(DISCONNECTED)
+	if c.onStateChange != nil {
+		c.onStateChange(DISCONNECTED)
+	}
 
 	return err
 }

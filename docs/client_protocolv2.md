@@ -12,3 +12,60 @@ reconnect, with exponential backoff to avoid overloading the server.
 
 A user callback can be provided to be notified about connection state events,
 such as disconnected and connected
+
+## Attachment
+When subscribing to a topic the client sends an `ATTACH` message containing
+the name of the topic to subscribe to. This may include an offset of the last
+message the client received, which the server will subscribe to the next message
+after this.
+
+Once the server sets up the subscription it responds with an `ATTACHED` message
+containing the offset of the most recent message that will not be included in
+the subscription. The client can detect a message discontinuity if this offset
+doesn't match the requested offset, which occurs if the requested offset has
+expired.
+
+### Re-attach
+The client tracks the offset of the most recent message received on the topic,
+or the offset contained in `ATTACHED` if not yet received any messages.
+
+If the connection drops, the client automatically reconnects. When a new
+connection succeeds an `ATTACH` message for all subscribed topics is sent
+containing this tracked offset to recover any messages missed while
+disconnected.
+
+## Protocol
+The Figg protocol uses a custom binary protocol to encode messages.
+
+Each messages starts with an 8 byte header containing:
+* Message type: `uint16`
+  * Used for routing the message to the appropriate handler,
+* Protocol version: `uint16`
+  * Currently `1`
+* Payload size: `uint32`
+  * Size of the messge payload in bytes
+
+The payloads may include zero or more fields. Variable size fields are encoded
+as `[]byte` and prefixed with a `uint32` containing its size.
+
+Integers and encoded in network byte order.
+
+### Messages
+#### ATTACH
+* Message type: `1`
+* Direction: Client -> Server
+* Fields
+  * `flags` `uint16`
+    * Bit 1: If `1` subscribes from a particular offset given in the payload,
+otherwise subscribes from the latest message on the topic (and the `offset`
+field is unused)
+  * `topic` ([]byte)
+  * `offset` (uint64)
+
+#### ATTACHED
+* Type: `2`
+* Name: `attached`
+* Direction: Server -> Client
+* Fields
+  * `topic` (string)
+  * `offset` (uint64)

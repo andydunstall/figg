@@ -1,6 +1,7 @@
 package figg
 
 import (
+	"errors"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,10 @@ import (
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
+
+var (
+	ErrAlreadySubscribed = errors.New("already subscribed")
+)
 
 type Figg struct {
 	opts *Options
@@ -30,7 +35,7 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	}
 
 	figg := &Figg{
-		opts:     opts,
+		opts: opts,
 		shutdown: 0,
 	}
 	figg.conn = newConnection(figg.onConnStateChange, opts)
@@ -42,6 +47,39 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	go figg.readLoop()
 
 	return figg, nil
+}
+
+// Subscribe to the given topic.
+//
+// Note only one subscriber is allowed per topic.
+func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption)  {
+	opts := defaultTopicOptions()
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// TODO(AD) Err if already attached.
+
+
+	ch := make(chan interface{}, 1)
+	onAttached := func() {
+		ch <- struct{}{}
+	}
+	if opts.FromOffset {
+		f.conn.AttachFromOffset(name, opts.Offset, onAttached, onMessage)
+	} else {
+		f.conn.Attach(name, onAttached, onMessage)
+	}
+	<-ch
+
+}
+
+func (f *Figg) Unsubscribe(topic string) {
+	// TODO(AD)
+	// send DETACH (don't wait for a response)
+	// keep pending detach to resend of fails
+	// topic.NotifyDetached
+	// delete topics[topic]
 }
 
 func (f *Figg) Close() error {
@@ -62,8 +100,7 @@ func (f *Figg) readLoop() {
 	defer f.wg.Done()
 
 	for {
-		_, err := f.conn.Read()
-		if err != nil {
+		if err := f.conn.Recv(); err != nil {
 			if s := atomic.LoadInt32(&f.shutdown); s == 1 {
 				return
 			}
