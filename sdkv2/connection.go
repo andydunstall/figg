@@ -40,7 +40,8 @@ type connection struct {
 	onStateChange func(state ConnState)
 	opts          *Options
 
-	attachments *attachments
+	attachments     *attachments
+	pendingMessages *pendingMessages
 
 	// shutdown is an atomic flag indicating if the client has been shutdown.
 	shutdown int32
@@ -58,14 +59,15 @@ type connection struct {
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
 	return &connection{
-		onStateChange: onStateChange,
-		opts:          opts,
-		attachments:   newAttachments(),
-		shutdown:      0,
-		done:          make(chan interface{}),
-		mu:            sync.Mutex{},
-		conn:          nil,
-		reader:        nil,
+		onStateChange:   onStateChange,
+		opts:            opts,
+		attachments:     newAttachments(),
+		pendingMessages: newPendingMessages(),
+		shutdown:        0,
+		done:            make(chan interface{}),
+		mu:              sync.Mutex{},
+		conn:            nil,
+		reader:          nil,
 	}
 }
 
@@ -83,6 +85,15 @@ func (c *connection) Connect() error {
 	c.onConnect(conn)
 
 	return nil
+}
+
+func (c *connection) Publish(name string, data []byte, onACK func()) {
+	seqNum := c.pendingMessages.Add(name, data, onACK)
+
+	// Ignore any errors as we'll resend on reconnect.
+	// Look at using net.Buffers when data large to avoid copying into
+	// message buffer.
+	c.conn.Write(encodePublishMessage(name, seqNum, data))
 }
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
@@ -160,6 +171,11 @@ func (c *connection) Recv() error {
 		topicName := string(b[offset : offset+int(topicLen)])
 
 		c.attachments.OnDetached(topicName)
+	case TypeACK:
+		offset := headerLen
+		seqNum, _ := decodeUint64(b, offset)
+
+		c.pendingMessages.Acknowledge(seqNum)
 	}
 
 	return nil
@@ -235,6 +251,12 @@ func (c *connection) onConnect(conn net.Conn) {
 
 	for _, topic := range c.attachments.Detaching() {
 		c.conn.Write(encodeDetachMessage(topic))
+	}
+
+	for _, m := range c.pendingMessages.Messages() {
+		// Look at using net.Buffers when data large to avoid copying into
+		// message buffer.
+		c.conn.Write(encodePublishMessage(m.Topic, m.SeqNum, m.Data))
 	}
 }
 

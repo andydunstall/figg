@@ -34,12 +34,43 @@ connection succeeds an `ATTACH` message for all attached and attaching topics
 is sent containing this tracked offset to recover any messages missed while
 disconnected.
 
-## Detach
+### Detach
 To unsubscribe the client sends a `DETACH` request with the topic name. This
 is retried on each reconnect until a `DETACHED` response is received.
 
 Note if the user subscribes to the topic again before receiving `DETACHED` it
 stops retrying.
+
+## Publish
+The client publishes messages with the `PUBLISH` message type, which contains
+the topic name and message data.
+
+Since the connection to the server can drop at any time, publishes must be
+acknowledged at the application level.
+
+The client gives each published message a unique sequence number, that is
+incremented for each message published. Note the same sequence number counter
+is used for all publishes on the connection (which may have multiple topics).
+
+Once the server processes the published message it responds with an `ACK`
+containing the sequence number of the published message.
+
+The client must resend all publishes that have not been acknowledged when it
+reconnects, sending in the same order as the original publishes. This means
+it must store all unacknowledged messages in order, then resend once the
+client reconnects.
+
+Once the client receives an `ACK` it can discard all messages with a sequence
+number equal to or less than that seqence number.
+
+Note the connection could drop after the server processes the publish but before
+it sends the ACK, which would cause the client to resend the message leading
+to duplicates. This means the service provides at least once delivery, rather
+than exactly once delivery, since guaranteeing exactly once delivery would add
+so much overhead the service would be too slow.
+
+In the future should probably limit the number of pending messages waiting to
+be acknowledged but for now its unbounded.
 
 ## Protocol
 The Figg protocol uses a custom binary protocol to encode messages.
@@ -88,3 +119,17 @@ field is unused)
 * Direction: Server -> Client
 * Fields
   * `topic` ([]byte)
+
+#### PUBLISH
+* Message type: `5`
+* Direction: Client -> Server
+* Fields
+  * `topic` ([]byte)
+  * `seq_num` (uint64)
+  * `data` ([]byte)
+
+#### ACK
+* Message type: `6`
+* Direction: Server -> Client
+* Fields
+  * `seq_num` (uint64)

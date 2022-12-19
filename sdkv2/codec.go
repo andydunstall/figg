@@ -190,3 +190,27 @@ func encodeDetachedMessage(topic string) []byte {
 
 	return buf
 }
+
+func encodePublishMessage(topic string, seqNum uint64, data []byte) []byte {
+	payloadLen := uint32Len + len(topic) + uint64Len + uint32Len + len(data)
+
+	buf := make([]byte, headerLen+payloadLen)
+	offset := encodeHeader(buf, 0, TypePublish, uint32(payloadLen))
+
+	encodeBytes(buf, offset, []byte(topic))
+	encodeUint64(buf, offset, seqNum)
+	encodeBytes(buf, offset, data)
+
+	return buf
+}
+
+func encodeACKMessage(seqNum uint64) []byte {
+	payloadLen := uint64Len
+
+	buf := make([]byte, headerLen+payloadLen)
+	offset := encodeHeader(buf, 0, TypeACK, uint32(payloadLen))
+
+	encodeUint64(buf, offset, seqNum)
+
+	return buf
+}

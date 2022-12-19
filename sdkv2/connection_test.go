@@ -227,6 +227,53 @@ func TestConnection_ResendDetachingOnReconnect(t *testing.T) {
 	assert.True(t, fakeConn.NextIncoming() == nil)
 }
 
+func TestConnection_Publish(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	conn.Publish("foo", []byte("A"), func() {})
+	conn.Publish("foo", []byte("B"), func() {})
+	conn.Publish("bar", []byte("C"), func() {})
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+}
+
+func TestConnection_PublishRetryOnReconnect(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	conn.Publish("foo", []byte("A"), func() {})
+	conn.Publish("foo", []byte("B"), func() {})
+	conn.Publish("bar", []byte("C"), func() {})
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+
+	// Reconnect before ACK'ing. Expect to receive the messages again.
+	conn.Reconnect()
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+
+	// ACK the first 2 messages only.
+	fakeConn.Outgoing = encodeACKMessage(1)
+	assert.Nil(t, conn.Recv())
+
+	// Reconnect again and now should only get the only unACK'ed message resent.
+	conn.Reconnect()
+	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+
+	// ACK the final message. Now when reconnecting no publishes should be
+	// retried.
+	fakeConn.Outgoing = encodeACKMessage(2)
+	assert.Nil(t, conn.Recv())
+	conn.Reconnect()
+	assert.True(t, fakeConn.NextIncoming() == nil)
+}
+
 func newFakeConnection(fakeConn *fakeConn) *connection {
 	dialer := &fakeDialer{
 		conn: fakeConn,

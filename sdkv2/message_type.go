@@ -7,6 +7,8 @@ const (
 	TypeAttached = MessageType(2)
 	TypeDetach   = MessageType(3)
 	TypeDetached = MessageType(4)
+	TypePublish  = MessageType(5)
+	TypeACK      = MessageType(6)
 )
 
 func (t MessageType) String() string {
@@ -19,6 +21,10 @@ func (t MessageType) String() string {
 		return "DETACH"
 	case TypeDetached:
 		return "DETACHED"
+	case TypePublish:
+		return "PUBLISH"
+	case TypeACK:
+		return "ACK"
 	default:
 		return "UNKNOWN"
 	}

@@ -49,6 +49,22 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	return figg, nil
 }
 
+// Publish publishes the data to the given topic. This waits for the message to
+// be acknowledged.
+func (f *Figg) Publish(name string, data []byte) {
+	ch := make(chan interface{}, 1)
+	f.conn.Publish(name, data, func() {
+		ch <- struct{}{}
+	})
+	<-ch
+}
+
+// PublishNoACK is the same as Publish except it doesn't wait for the message
+// to be acknowledged
+func (f *Figg) PublishNoACK(name string, data []byte) {
+	f.conn.Publish(name, data, nil)
+}
+
 // Subscribe to the given topic.
 //
 // Note only one subscriber is allowed per topic.
