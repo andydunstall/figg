@@ -322,6 +322,54 @@ func TestConnection_OnMessage(t *testing.T) {
 	}, messages)
 }
 
+// Tests receiving a message fragemented with one byte per recv.
+func TestConnection_ReceiveFragmentedResponse(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	attached := false
+	conn.Attach("foo", func() {
+		attached = true
+	}, func(m Message) {})
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+
+	outgoing := encodeAttachedMessage("foo", 10)
+	// Receive one byte at a time.
+	for _, b := range outgoing {
+		fakeConn.Outgoing = []byte{b}
+		assert.Nil(t, conn.Recv())
+	}
+
+	assert.Nil(t, conn.Recv())
+	assert.True(t, attached)
+}
+
+func TestConnection_RecieveMultipleMessagesPerRead(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	fooAttached := false
+	conn.Attach("foo", func() {
+		fooAttached = true
+	}, func(m Message) {})
+
+	barAttached := false
+	conn.Attach("bar", func() {
+		barAttached = true
+	}, func(m Message) {})
+
+	outgoing := encodeAttachedMessage("foo", 10)
+	outgoing = append(outgoing, encodeAttachedMessage("bar", 20)...)
+	fakeConn.Outgoing = outgoing
+
+	assert.Nil(t, conn.Recv())
+	assert.True(t, fooAttached)
+
+	assert.Nil(t, conn.Recv())
+	assert.True(t, barAttached)
+}
+
 func newFakeConnection(fakeConn *fakeConn) *connection {
 	dialer := &fakeDialer{
 		conn: fakeConn,

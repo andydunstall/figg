@@ -55,6 +55,9 @@ type connection struct {
 	conn net.Conn
 	// reader reads bytes from the connection.
 	reader *reader
+	// pending contains bytes read from the connection that have not been
+	// processed.
+	pending []byte
 }
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
@@ -68,6 +71,7 @@ func newConnection(onStateChange func(state ConnState), opts *Options) *connecti
 		mu:              sync.Mutex{},
 		conn:            nil,
 		reader:          nil,
+		pending: []byte{},
 	}
 }
 
@@ -137,6 +141,8 @@ func (c *connection) Recv() error {
 		return ErrNotConnected
 	}
 
+	pendingRemaining := c.processPending()
+
 	b, err := c.reader.Read()
 	if err != nil {
 		// Avoid logging if we are shutdown.
@@ -152,45 +158,35 @@ func (c *connection) Recv() error {
 		return err
 	}
 
-	// TODO(AD) handle fragmentation
+	// If there are pending bytes to process, append and process in the next
+	// loop.
+	if pendingRemaining {
+		c.mu.Lock()
+		c.pending = append(c.pending, b...)
+		c.mu.Unlock()
+		return nil
+	}
 
-	messageType, _, _ := decodeHeader(b)
+	messageType, payloadLen, ok := decodeHeader(b)
+	if !ok {
+		c.mu.Lock()
+		c.pending = append(c.pending, b...)
+		c.mu.Unlock()
+		return nil
+	}
 
-	switch messageType {
-	case TypeAttached:
-		offset := headerLen
-		topicLen, offset := decodeUint32(b, offset)
-		topicName := string(b[offset : offset+int(topicLen)])
-		offset += int(topicLen)
-		topicOffset, offset := decodeUint64(b, offset)
+	if len(b) < headerLen + payloadLen {
+		c.mu.Lock()
+		c.pending = append(c.pending, b...)
+		c.mu.Unlock()
+		return nil
+	}
 
-		c.attachments.OnAttached(topicName, topicOffset)
-	case TypeDetached:
-		offset := headerLen
-		topicLen, offset := decodeUint32(b, offset)
-		topicName := string(b[offset : offset+int(topicLen)])
-
-		c.attachments.OnDetached(topicName)
-	case TypeACK:
-		offset := headerLen
-		seqNum, _ := decodeUint64(b, offset)
-
-		c.pendingMessages.Acknowledge(seqNum)
-	case TypeData:
-
-		offset := headerLen
-
-		topicLen, offset := decodeUint32(b, offset)
-		topicName := string(b[offset : offset+int(topicLen)])
-		offset += int(topicLen)
-		topicOffset, offset := decodeUint64(b, offset)
-		dataLen, offset := decodeUint32(b, offset)
-		data := b[offset : offset+int(dataLen)]
-
-		c.attachments.OnMessage(topicName, Message{
-			Offset: topicOffset,
-			Data:   data,
-		})
+	offset := c.onMessage(messageType, headerLen, b)
+	if offset != len(b) {
+		c.mu.Lock()
+		c.pending = append(c.pending, b[offset:]...)
+		c.mu.Unlock()
 	}
 
 	return nil
@@ -239,6 +235,47 @@ func (c *connection) Close() error {
 	close(c.done)
 
 	return c.onDisconnect()
+}
+
+func (c *connection) onMessage(messageType MessageType, offset int, b []byte) int {
+	switch messageType {
+	case TypeAttached:
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+		topicOffset, offset := decodeUint64(b, offset)
+
+		c.attachments.OnAttached(topicName, topicOffset)
+		return offset
+	case TypeDetached:
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+
+		c.attachments.OnDetached(topicName)
+		return offset
+	case TypeACK:
+		seqNum, offset := decodeUint64(b, offset)
+
+		c.pendingMessages.Acknowledge(seqNum)
+		return offset
+	case TypeData:
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+		topicOffset, offset := decodeUint64(b, offset)
+		dataLen, offset := decodeUint32(b, offset)
+		data := b[offset : offset+int(dataLen)]
+		offset += int(dataLen)
+
+		c.attachments.OnMessage(topicName, Message{
+			Offset: topicOffset,
+			Data:   data,
+		})
+		return offset
+	}
+
+	return 0
 }
 
 func (c *connection) onConnect(conn net.Conn) {
@@ -293,4 +330,27 @@ func (c *connection) onDisconnect() error {
 	}
 
 	return err
+}
+
+func (c *connection) processPending() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.pending) == 0 {
+		return false
+	}
+
+	messageType, payloadLen, ok := decodeHeader(c.pending)
+	if !ok {
+		return true
+	}
+
+	if len(c.pending) < headerLen + payloadLen {
+		return true
+	}
+
+	offset := c.onMessage(messageType, headerLen, c.pending)
+	c.pending = c.pending[offset:]
+
+	return len(c.pending) == 0
 }
