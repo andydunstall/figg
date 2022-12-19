@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andydunstall/figg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,8 +82,8 @@ func TestConnection_Attach(t *testing.T) {
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 10)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 10)
 
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
@@ -97,8 +98,8 @@ func TestConnection_AttachFromOffset(t *testing.T) {
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachFromOffsetMessage("foo", 0xff))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
@@ -115,14 +116,14 @@ func TestConnection_ReattachPendingAttachmentOnReconnect(t *testing.T) {
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
 
 	// Reconnect before responding. This should cause the client to resend
 	// the ATTACH message.
 	conn.Reconnect()
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
@@ -137,14 +138,14 @@ func TestConnection_ReattachPendingAttachmentFromOffsetOnReconnect(t *testing.T)
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachFromOffsetMessage("foo", 0xff))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
 
 	// Reconnect before responding. This should cause the client to resend
 	// the ATTACH message.
 	conn.Reconnect()
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachFromOffsetMessage("foo", 0xff))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
@@ -159,10 +160,10 @@ func TestConnection_ReattachActiveAttachmentOnReconnect(t *testing.T) {
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
 
 	// Response with ATTACHED.
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
 
@@ -170,8 +171,8 @@ func TestConnection_ReattachActiveAttachmentOnReconnect(t *testing.T) {
 	// offset.
 	conn.Reconnect()
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachFromOffsetMessage("foo", 0xff))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 
 	assert.Nil(t, conn.Recv())
 	assert.True(t, attached)
@@ -184,9 +185,9 @@ func TestConnection_Detach(t *testing.T) {
 	conn.Attach("foo", func() {}, func(m Message) {})
 	conn.Detach("foo")
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
-	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
-	fakeConn.Outgoing = encodeDetachedMessage("foo")
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeDetachMessage("foo"))
+	fakeConn.Outgoing = utils.EncodeDetachedMessage("foo")
 
 	assert.Nil(t, conn.Recv())
 	assert.Equal(t, 0, len(conn.attachments.Detaching()))
@@ -208,17 +209,17 @@ func TestConnection_ResendDetachingOnReconnect(t *testing.T) {
 	conn.Attach("foo", func() {}, func(m Message) {})
 	conn.Detach("foo")
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
-	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeDetachMessage("foo"))
 
 	// Reconnect before responding. This should cause the client to resend
 	// the DETACH message.
 	conn.Reconnect()
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeDetachMessage("foo"))
 
 	// Not respond and check clears.
-	fakeConn.Outgoing = encodeDetachedMessage("foo")
+	fakeConn.Outgoing = utils.EncodeDetachedMessage("foo")
 	assert.Nil(t, conn.Recv())
 	assert.Equal(t, 0, len(conn.attachments.Detaching()))
 
@@ -235,9 +236,9 @@ func TestConnection_Publish(t *testing.T) {
 	conn.Publish("foo", []byte("B"), func() {})
 	conn.Publish("bar", []byte("C"), func() {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("bar", 2, []byte("C")))
 }
 
 func TestConnection_PublishRetryOnReconnect(t *testing.T) {
@@ -248,27 +249,27 @@ func TestConnection_PublishRetryOnReconnect(t *testing.T) {
 	conn.Publish("foo", []byte("B"), func() {})
 	conn.Publish("bar", []byte("C"), func() {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("bar", 2, []byte("C")))
 
 	// Reconnect before ACK'ing. Expect to receive the messages again.
 	conn.Reconnect()
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("bar", 2, []byte("C")))
 
 	// ACK the first 2 messages only.
-	fakeConn.Outgoing = encodeACKMessage(1)
+	fakeConn.Outgoing = utils.EncodeACKMessage(1)
 	assert.Nil(t, conn.Recv())
 
 	// Reconnect again and now should only get the only unACK'ed message resent.
 	conn.Reconnect()
-	assert.Equal(t, fakeConn.NextIncoming(), encodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodePublishMessage("bar", 2, []byte("C")))
 
 	// ACK the final message. Now when reconnecting no publishes should be
 	// retried.
-	fakeConn.Outgoing = encodeACKMessage(2)
+	fakeConn.Outgoing = utils.EncodeACKMessage(2)
 	assert.Nil(t, conn.Recv())
 	conn.Reconnect()
 	assert.True(t, fakeConn.NextIncoming() == nil)
@@ -292,18 +293,18 @@ func TestConnection_OnMessage(t *testing.T) {
 			Offset: m.Offset,
 		})
 	})
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
-	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
+	fakeConn.Outgoing = utils.EncodeAttachedMessage("foo", 0xff)
 	assert.Nil(t, conn.Recv())
 
-	fakeConn.Outgoing = encodeDataMessage("foo", 0x105, []byte("A"))
+	fakeConn.Outgoing = utils.EncodeDataMessage("foo", 0x105, []byte("A"))
 	assert.Nil(t, conn.Recv())
-	fakeConn.Outgoing = encodeDataMessage("foo", 0x110, []byte("B"))
+	fakeConn.Outgoing = utils.EncodeDataMessage("foo", 0x110, []byte("B"))
 	assert.Nil(t, conn.Recv())
 	// Another topic message should be ignored.
-	fakeConn.Outgoing = encodeDataMessage("bar", 0x102, []byte("C"))
+	fakeConn.Outgoing = utils.EncodeDataMessage("bar", 0x102, []byte("C"))
 	assert.Nil(t, conn.Recv())
-	fakeConn.Outgoing = encodeDataMessage("foo", 0x115, []byte("D"))
+	fakeConn.Outgoing = utils.EncodeDataMessage("foo", 0x115, []byte("D"))
 	assert.Nil(t, conn.Recv())
 
 	assert.Equal(t, []Message{
@@ -332,9 +333,9 @@ func TestConnection_ReceiveFragmentedResponse(t *testing.T) {
 		attached = true
 	}, func(m Message) {})
 
-	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), utils.EncodeAttachMessage("foo"))
 
-	outgoing := encodeAttachedMessage("foo", 10)
+	outgoing := utils.EncodeAttachedMessage("foo", 10)
 	// Receive one byte at a time.
 	for _, b := range outgoing {
 		fakeConn.Outgoing = []byte{b}
@@ -359,8 +360,8 @@ func TestConnection_RecieveMultipleMessagesPerRead(t *testing.T) {
 		barAttached = true
 	}, func(m Message) {})
 
-	outgoing := encodeAttachedMessage("foo", 10)
-	outgoing = append(outgoing, encodeAttachedMessage("bar", 20)...)
+	outgoing := utils.EncodeAttachedMessage("foo", 10)
+	outgoing = append(outgoing, utils.EncodeAttachedMessage("bar", 20)...)
 	fakeConn.Outgoing = outgoing
 
 	assert.Nil(t, conn.Recv())

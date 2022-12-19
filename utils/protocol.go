@@ -4,22 +4,12 @@ import (
 	"encoding/binary"
 )
 
-type MessageType uint16
-
 const (
-	TypeAttach   = MessageType(1)
-	TypeAttached = MessageType(2)
-	TypeDetach   = MessageType(3)
-	TypeDetached = MessageType(4)
-	TypePublish  = MessageType(5)
-	TypeACK      = MessageType(6)
-	TypePayload  = MessageType(7)
-	TypePing     = MessageType(8)
-	TypePong     = MessageType(9)
+	TypePayload = MessageType(7) // TODO(AD)
+	TypePing    = MessageType(8) // TODO(AD)
+	TypePong    = MessageType(9) // TODO(AD)
 
 	PrefixSize = 4
-
-	HeaderLen = 8
 )
 
 func TypeToString(t MessageType) string {

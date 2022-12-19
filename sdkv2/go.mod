@@ -12,3 +12,6 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+require github.com/andydunstall/figg/utils v0.0.0
+replace github.com/andydunstall/figg/utils v0.0.0 => ../utils

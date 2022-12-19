@@ -1,4 +1,4 @@
-package figg
+package utils
 
 type MessageType uint16
 

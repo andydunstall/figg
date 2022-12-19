@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +72,7 @@ func newConnection(onStateChange func(state ConnState), opts *Options) *connecti
 		mu:              sync.Mutex{},
 		conn:            nil,
 		reader:          nil,
-		pending: []byte{},
+		pending:         []byte{},
 	}
 }
 
@@ -97,7 +98,7 @@ func (c *connection) Publish(name string, data []byte, onACK func()) {
 	// Ignore any errors as we'll resend on reconnect.
 	// Look at using net.Buffers when data large to avoid copying into
 	// message buffer.
-	c.conn.Write(encodePublishMessage(name, seqNum, data))
+	c.conn.Write(utils.EncodePublishMessage(name, seqNum, data))
 }
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
@@ -109,7 +110,7 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 	}
 
 	// Ignore any errors as we'll resend on reconnect.
-	c.conn.Write(encodeAttachMessage(name))
+	c.conn.Write(utils.EncodeAttachMessage(name))
 	return nil
 }
 
@@ -122,7 +123,7 @@ func (c *connection) AttachFromOffset(name string, offset uint64, onAttached fun
 	}
 
 	// Ignore any errors as we'll resend on reconnect.
-	c.conn.Write(encodeAttachFromOffsetMessage(name, offset))
+	c.conn.Write(utils.EncodeAttachFromOffsetMessage(name, offset))
 	return nil
 }
 
@@ -130,7 +131,7 @@ func (c *connection) Detach(name string) {
 	// Only send DETACH if we're attached or attaching.
 	if c.attachments.AddDetaching(name) {
 		// Ignore any errors as we'll resend on reconnect.
-		c.conn.Write(encodeDetachMessage(name))
+		c.conn.Write(utils.EncodeDetachMessage(name))
 	}
 }
 
@@ -167,7 +168,7 @@ func (c *connection) Recv() error {
 		return nil
 	}
 
-	messageType, payloadLen, ok := decodeHeader(b)
+	messageType, payloadLen, ok := utils.DecodeHeader(b)
 	if !ok {
 		c.mu.Lock()
 		c.pending = append(c.pending, b...)
@@ -175,14 +176,14 @@ func (c *connection) Recv() error {
 		return nil
 	}
 
-	if len(b) < headerLen + payloadLen {
+	if len(b) < utils.HeaderLen+payloadLen {
 		c.mu.Lock()
 		c.pending = append(c.pending, b...)
 		c.mu.Unlock()
 		return nil
 	}
 
-	offset := c.onMessage(messageType, headerLen, b)
+	offset := c.onMessage(messageType, utils.HeaderLen, b)
 	if offset != len(b) {
 		c.mu.Lock()
 		c.pending = append(c.pending, b[offset:]...)
@@ -237,34 +238,34 @@ func (c *connection) Close() error {
 	return c.onDisconnect()
 }
 
-func (c *connection) onMessage(messageType MessageType, offset int, b []byte) int {
+func (c *connection) onMessage(messageType utils.MessageType, offset int, b []byte) int {
 	switch messageType {
-	case TypeAttached:
-		topicLen, offset := decodeUint32(b, offset)
+	case utils.TypeAttached:
+		topicLen, offset := utils.DecodeUint32(b, offset)
 		topicName := string(b[offset : offset+int(topicLen)])
 		offset += int(topicLen)
-		topicOffset, offset := decodeUint64(b, offset)
+		topicOffset, offset := utils.DecodeUint64(b, offset)
 
 		c.attachments.OnAttached(topicName, topicOffset)
 		return offset
-	case TypeDetached:
-		topicLen, offset := decodeUint32(b, offset)
+	case utils.TypeDetached:
+		topicLen, offset := utils.DecodeUint32(b, offset)
 		topicName := string(b[offset : offset+int(topicLen)])
 		offset += int(topicLen)
 
 		c.attachments.OnDetached(topicName)
 		return offset
-	case TypeACK:
-		seqNum, offset := decodeUint64(b, offset)
+	case utils.TypeACK:
+		seqNum, offset := utils.DecodeUint64(b, offset)
 
 		c.pendingMessages.Acknowledge(seqNum)
 		return offset
-	case TypeData:
-		topicLen, offset := decodeUint32(b, offset)
+	case utils.TypeData:
+		topicLen, offset := utils.DecodeUint32(b, offset)
 		topicName := string(b[offset : offset+int(topicLen)])
 		offset += int(topicLen)
-		topicOffset, offset := decodeUint64(b, offset)
-		dataLen, offset := decodeUint32(b, offset)
+		topicOffset, offset := utils.DecodeUint64(b, offset)
+		dataLen, offset := utils.DecodeUint32(b, offset)
 		data := b[offset : offset+int(dataLen)]
 		offset += int(dataLen)
 
@@ -291,24 +292,24 @@ func (c *connection) onConnect(conn net.Conn) {
 
 	for _, att := range c.attachments.Attaching() {
 		if att.FromOffset {
-			c.conn.Write(encodeAttachFromOffsetMessage(att.Name, att.Offset))
+			c.conn.Write(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
 		} else {
-			c.conn.Write(encodeAttachMessage(att.Name))
+			c.conn.Write(utils.EncodeAttachMessage(att.Name))
 		}
 	}
 
 	for _, att := range c.attachments.Attached() {
-		c.conn.Write(encodeAttachFromOffsetMessage(att.Name, att.Offset))
+		c.conn.Write(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
 	}
 
 	for _, topic := range c.attachments.Detaching() {
-		c.conn.Write(encodeDetachMessage(topic))
+		c.conn.Write(utils.EncodeDetachMessage(topic))
 	}
 
 	for _, m := range c.pendingMessages.Messages() {
 		// Look at using net.Buffers when data large to avoid copying into
 		// message buffer.
-		c.conn.Write(encodePublishMessage(m.Topic, m.SeqNum, m.Data))
+		c.conn.Write(utils.EncodePublishMessage(m.Topic, m.SeqNum, m.Data))
 	}
 }
 
@@ -340,16 +341,16 @@ func (c *connection) processPending() bool {
 		return false
 	}
 
-	messageType, payloadLen, ok := decodeHeader(c.pending)
+	messageType, payloadLen, ok := utils.DecodeHeader(c.pending)
 	if !ok {
 		return true
 	}
 
-	if len(c.pending) < headerLen + payloadLen {
+	if len(c.pending) < utils.HeaderLen+payloadLen {
 		return true
 	}
 
-	offset := c.onMessage(messageType, headerLen, c.pending)
+	offset := c.onMessage(messageType, utils.HeaderLen, c.pending)
 	c.pending = c.pending[offset:]
 
 	return len(c.pending) == 0
