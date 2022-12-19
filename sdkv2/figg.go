@@ -52,25 +52,27 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 // Subscribe to the given topic.
 //
 // Note only one subscriber is allowed per topic.
-func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption) {
+func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption) error {
 	opts := defaultTopicOptions()
 	for _, opt := range options {
 		opt(opts)
 	}
-
-	// TODO(AD) Err if already attached.
 
 	ch := make(chan interface{}, 1)
 	onAttached := func() {
 		ch <- struct{}{}
 	}
 	if opts.FromOffset {
-		f.conn.AttachFromOffset(name, opts.Offset, onAttached, onMessage)
+		if err := f.conn.AttachFromOffset(name, opts.Offset, onAttached, onMessage); err != nil {
+			return err
+		}
 	} else {
-		f.conn.Attach(name, onAttached, onMessage)
+		if err := f.conn.Attach(name, onAttached, onMessage); err != nil {
+			return err
+		}
 	}
 	<-ch
-
+	return nil
 }
 
 func (f *Figg) Unsubscribe(topic string) {
