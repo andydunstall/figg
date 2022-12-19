@@ -41,6 +41,10 @@ is retried on each reconnect until a `DETACHED` response is received.
 Note if the user subscribes to the topic again before receiving `DETACHED` it
 stops retrying.
 
+### Messages
+When a client is attached to a topic, all messages published to that topic
+are sent to the client as `DATA` messages.
+
 ## Publish
 The client publishes messages with the `PUBLISH` message type, which contains
 the topic name and message data.
@@ -133,3 +137,11 @@ field is unused)
 * Direction: Server -> Client
 * Fields
   * `seq_num` (uint64)
+
+#### DATA
+* Message type: `7`
+* Direction: Server -> Client
+* Fields
+  * `topic` ([]byte)
+  * `offset` (uint64)
+  * `data` ([]byte)

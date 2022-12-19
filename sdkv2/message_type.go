@@ -9,6 +9,7 @@ const (
 	TypeDetached = MessageType(4)
 	TypePublish  = MessageType(5)
 	TypeACK      = MessageType(6)
+	TypeData     = MessageType(7)
 )
 
 func (t MessageType) String() string {
@@ -25,6 +26,8 @@ func (t MessageType) String() string {
 		return "PUBLISH"
 	case TypeACK:
 		return "ACK"
+	case TypeData:
+		return "DATA"
 	default:
 		return "UNKNOWN"
 	}

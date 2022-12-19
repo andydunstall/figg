@@ -274,6 +274,54 @@ func TestConnection_PublishRetryOnReconnect(t *testing.T) {
 	assert.True(t, fakeConn.NextIncoming() == nil)
 }
 
+func TestConnection_OnMessage(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	messages := []Message{}
+
+	// Add attachment.
+	conn.Attach("foo", func() {}, func(m Message) {
+		data := make([]byte, 0, len(m.Data))
+		for _, b := range m.Data {
+			data = append(data, b)
+		}
+
+		messages = append(messages, Message{
+			Data:   data,
+			Offset: m.Offset,
+		})
+	})
+	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	fakeConn.Outgoing = encodeAttachedMessage("foo", 0xff)
+	assert.Nil(t, conn.Recv())
+
+	fakeConn.Outgoing = encodeDataMessage("foo", 0x105, []byte("A"))
+	assert.Nil(t, conn.Recv())
+	fakeConn.Outgoing = encodeDataMessage("foo", 0x110, []byte("B"))
+	assert.Nil(t, conn.Recv())
+	// Another topic message should be ignored.
+	fakeConn.Outgoing = encodeDataMessage("bar", 0x102, []byte("C"))
+	assert.Nil(t, conn.Recv())
+	fakeConn.Outgoing = encodeDataMessage("foo", 0x115, []byte("D"))
+	assert.Nil(t, conn.Recv())
+
+	assert.Equal(t, []Message{
+		{
+			Data:   []byte("A"),
+			Offset: 0x105,
+		},
+		{
+			Data:   []byte("B"),
+			Offset: 0x110,
+		},
+		{
+			Data:   []byte("D"),
+			Offset: 0x115,
+		},
+	}, messages)
+}
+
 func newFakeConnection(fakeConn *fakeConn) *connection {
 	dialer := &fakeDialer{
 		conn: fakeConn,

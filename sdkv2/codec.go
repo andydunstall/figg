@@ -214,3 +214,16 @@ func encodeACKMessage(seqNum uint64) []byte {
 
 	return buf
 }
+
+func encodeDataMessage(topic string, topicOffset uint64, data []byte) []byte {
+	payloadLen := uint32Len + len(topic) + uint64Len + uint32Len + len(data)
+
+	buf := make([]byte, headerLen+payloadLen)
+	offset := encodeHeader(buf, 0, TypeData, uint32(payloadLen))
+
+	offset = encodeBytes(buf, offset, []byte(topic))
+	offset = encodeUint64(buf, offset, topicOffset)
+	encodeBytes(buf, offset, data)
+
+	return buf
+}

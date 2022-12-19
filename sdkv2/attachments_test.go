@@ -11,9 +11,9 @@ func TestAttachments_Attaching(t *testing.T) {
 	attachments := newAttachments()
 
 	onAttach := func() {}
-	attachments.AddAttaching("foo", onAttach)
-	attachments.AddAttachingFromOffset("bar", 10, onAttach)
-	attachments.AddAttaching("car", onAttach)
+	attachments.AddAttaching("foo", onAttach, nil)
+	attachments.AddAttachingFromOffset("bar", 10, onAttach, nil)
+	attachments.AddAttaching("car", onAttach, nil)
 
 	// After becoming attached the topic 'car' should no longer be Attaching.
 	attachments.OnAttached("car", 20)
@@ -42,12 +42,12 @@ func TestAttachments_OnAttached(t *testing.T) {
 	fooAttached := false
 	attachments.AddAttaching("foo", func() {
 		fooAttached = true
-	})
+	}, nil)
 
 	barAttached := false
 	attachments.AddAttachingFromOffset("bar", 10, func() {
 		barAttached = true
-	})
+	}, nil)
 
 	attachments.OnAttached("foo", 20)
 	attachments.OnAttached("bar", 10)
@@ -77,10 +77,10 @@ func TestAttachments_AttachingAndAttachedClearedWhenDetaching(t *testing.T) {
 	attachments := newAttachments()
 
 	// Add attaching topic.
-	attachments.AddAttaching("foo", func() {})
+	attachments.AddAttaching("foo", func() {}, nil)
 
 	// Add attached topic.
-	attachments.AddAttaching("bar", func() {})
+	attachments.AddAttaching("bar", func() {}, nil)
 	attachments.OnAttached("bar", 10)
 
 	// Make both the above topics detaching. This should remove from attaching
@@ -96,16 +96,16 @@ func TestAttachments_AttachToDetachingChannel(t *testing.T) {
 	attachments := newAttachments()
 
 	// Add attaching topics.
-	attachments.AddAttaching("foo", func() {})
-	attachments.AddAttachingFromOffset("bar", 10, func() {})
+	attachments.AddAttaching("foo", func() {}, nil)
+	attachments.AddAttachingFromOffset("bar", 10, func() {}, nil)
 
 	// Replace with detaching topic.
 	attachments.AddDetaching("foo")
 	attachments.AddDetaching("bar")
 
 	// Attach again before becoming detached.
-	attachments.AddAttaching("foo", func() {})
-	attachments.AddAttachingFromOffset("bar", 10, func() {})
+	attachments.AddAttaching("foo", func() {}, nil)
+	attachments.AddAttachingFromOffset("bar", 10, func() {}, nil)
 
 	// Check its not attaching not detaching
 	attaching := attachments.Attaching()
@@ -123,8 +123,8 @@ func TestAttachments_Detaching(t *testing.T) {
 	attachments := newAttachments()
 
 	// Add attaching topics.
-	attachments.AddAttaching("foo", func() {})
-	attachments.AddAttachingFromOffset("bar", 10, func() {})
+	attachments.AddAttaching("foo", func() {}, nil)
+	attachments.AddAttachingFromOffset("bar", 10, func() {}, nil)
 
 	// Replace with detaching topic.
 	attachments.AddDetaching("foo")
@@ -140,8 +140,8 @@ func TestAttachments_OnDetached(t *testing.T) {
 	attachments := newAttachments()
 
 	// Add attaching topics.
-	attachments.AddAttaching("foo", func() {})
-	attachments.AddAttachingFromOffset("bar", 10, func() {})
+	attachments.AddAttaching("foo", func() {}, nil)
+	attachments.AddAttachingFromOffset("bar", 10, func() {}, nil)
 
 	// Replace with detaching topic.
 	attachments.AddDetaching("foo")
@@ -152,4 +152,46 @@ func TestAttachments_OnDetached(t *testing.T) {
 
 	detaching := attachments.Detaching()
 	assert.Equal(t, []string{"bar"}, detaching)
+}
+
+func TestAttachments_OnMessage(t *testing.T) {
+	messages := []Message{}
+	attachments := newAttachments()
+
+	// Add attached topic.
+	attachments.AddAttaching("foo", func() {}, func(m Message) {
+		messages = append(messages, m)
+	})
+	attachments.OnAttached("foo", 10)
+
+	attachments.OnMessage("foo", Message{
+		Data:   []byte("A"),
+		Offset: 5,
+	})
+	attachments.OnMessage("foo", Message{
+		Data:   []byte("B"),
+		Offset: 10,
+	})
+	attachments.OnMessage("foo", Message{
+		Data:   []byte("C"),
+		Offset: 15,
+	})
+
+	assert.Equal(t, []Message{
+		{
+			Data:   []byte("A"),
+			Offset: 5,
+		},
+		{
+			Data:   []byte("B"),
+			Offset: 10,
+		},
+		{
+			Data:   []byte("C"),
+			Offset: 15,
+		},
+	}, messages)
+
+	// Check the tracked offset is updated.
+	assert.Equal(t, uint64(15), attachments.Attached()[0].Offset)
 }

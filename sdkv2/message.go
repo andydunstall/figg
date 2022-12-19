@@ -10,10 +10,3 @@ type Message struct {
 }
 
 type MessageCB func(m Message)
-
-type topic struct {
-	MessageCB func(m Message)
-
-	// Offset is the offset of the last message recieved on the topic.
-	Offset uint64
-}

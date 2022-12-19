@@ -100,7 +100,7 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 	// Register for an ATTACHED response. Note if sending the ATTACH message
 	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
-	if err := c.attachments.AddAttaching(name, onAttached); err != nil {
+	if err := c.attachments.AddAttaching(name, onAttached, onMessage); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (c *connection) AttachFromOffset(name string, offset uint64, onAttached fun
 	// Register for an ATTACHED response. Note if sending the ATTACH message
 	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
-	if err := c.attachments.AddAttachingFromOffset(name, offset, onAttached); err != nil {
+	if err := c.attachments.AddAttachingFromOffset(name, offset, onAttached, onMessage); err != nil {
 		return err
 	}
 
@@ -176,6 +176,21 @@ func (c *connection) Recv() error {
 		seqNum, _ := decodeUint64(b, offset)
 
 		c.pendingMessages.Acknowledge(seqNum)
+	case TypeData:
+
+		offset := headerLen
+
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+		topicOffset, offset := decodeUint64(b, offset)
+		dataLen, offset := decodeUint32(b, offset)
+		data := b[offset : offset+int(dataLen)]
+
+		c.attachments.OnMessage(topicName, Message{
+			Offset: topicOffset,
+			Data:   data,
+		})
 	}
 
 	return nil

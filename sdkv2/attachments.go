@@ -9,11 +9,13 @@ type attachingAttachment struct {
 	FromOffset bool
 	Offset     uint64
 	OnAttached func()
+	OnMessage  MessageCB
 }
 
 type attachedAttachment struct {
-	Name   string
-	Offset uint64
+	Name      string
+	Offset    uint64
+	OnMessage MessageCB
 }
 
 type attachments struct {
@@ -36,7 +38,7 @@ func newAttachments() *attachments {
 
 // AddAttaching adds a new attaching attachment for the topic with the given name.
 // When the topic becomes attached the onAttached callback is called.
-func (a *attachments) AddAttaching(name string, onAttached func()) error {
+func (a *attachments) AddAttaching(name string, onAttached func(), onMessage MessageCB) error {
 	// Don't allow attaching multiple times.
 	if a.isAttaching(name) || a.isAttached(name) {
 		return ErrAlreadySubscribed
@@ -54,6 +56,7 @@ func (a *attachments) AddAttaching(name string, onAttached func()) error {
 		FromOffset: false,
 		Offset:     0,
 		OnAttached: onAttached,
+		OnMessage:  onMessage,
 	}
 
 	return nil
@@ -61,7 +64,7 @@ func (a *attachments) AddAttaching(name string, onAttached func()) error {
 
 // AddAttachingFromOffset is the same as AddAttaching except it requests an offset
 // to attach from.
-func (a *attachments) AddAttachingFromOffset(name string, offset uint64, onAttached func()) error {
+func (a *attachments) AddAttachingFromOffset(name string, offset uint64, onAttached func(), onMessage MessageCB) error {
 	// Don't allow attaching multiple times.
 	if a.isAttaching(name) || a.isAttached(name) {
 		return ErrAlreadySubscribed
@@ -79,6 +82,7 @@ func (a *attachments) AddAttachingFromOffset(name string, offset uint64, onAttac
 		FromOffset: true,
 		Offset:     offset,
 		OnAttached: onAttached,
+		OnMessage:  onMessage,
 	}
 
 	return nil
@@ -153,8 +157,9 @@ func (a *attachments) OnAttached(name string, offset uint64) {
 	delete(a.attaching, name)
 
 	a.attached[name] = attachedAttachment{
-		Name:   name,
-		Offset: offset,
+		Name:      name,
+		Offset:    offset,
+		OnMessage: attaching.OnMessage,
 	}
 }
 
@@ -163,6 +168,22 @@ func (a *attachments) OnDetached(name string) {
 	defer a.mu.Unlock()
 
 	delete(a.detaching, name)
+}
+
+func (a *attachments) OnMessage(name string, m Message) {
+	// If not attached nothing to do. Likely due to being in detaching state.
+	if !a.isAttached(name) {
+		return
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	attached := a.attached[name]
+	attached.OnMessage(m)
+	// Track the offset of the last message received.
+	attached.Offset = m.Offset
+	a.attached[name] = attached
 }
 
 func (a *attachments) isAttaching(name string) bool {
