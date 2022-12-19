@@ -93,7 +93,7 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 		return err
 	}
 
-	// Ignore any errors as we'll resend on reattach.
+	// Ignore any errors as we'll resend on reconnect.
 	c.conn.Write(encodeAttachMessage(name))
 	return nil
 }
@@ -106,12 +106,17 @@ func (c *connection) AttachFromOffset(name string, offset uint64, onAttached fun
 		return err
 	}
 
-	// Ignore any errors as we'll resend on reattach.
+	// Ignore any errors as we'll resend on reconnect.
 	c.conn.Write(encodeAttachFromOffsetMessage(name, offset))
 	return nil
 }
 
 func (c *connection) Detach(name string) {
+	// Only send DETACH if we're attached or attaching.
+	if c.attachments.AddDetaching(name) {
+		// Ignore any errors as we'll resend on reconnect.
+		c.conn.Write(encodeDetachMessage(name))
+	}
 }
 
 // Read bytes from the connection. Must only be called from a single goroutine.
@@ -149,6 +154,12 @@ func (c *connection) Recv() error {
 		topicOffset, offset := decodeUint64(b, offset)
 
 		c.attachments.OnAttached(topicName, topicOffset)
+	case TypeDetached:
+		offset := headerLen
+		topicLen, offset := decodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+
+		c.attachments.OnDetached(topicName)
 	}
 
 	return nil
@@ -222,7 +233,9 @@ func (c *connection) onConnect(conn net.Conn) {
 		c.conn.Write(encodeAttachFromOffsetMessage(att.Name, att.Offset))
 	}
 
-	// TODO resend detached
+	for _, topic := range c.attachments.Detaching() {
+		c.conn.Write(encodeDetachMessage(topic))
+	}
 }
 
 func (c *connection) onDisconnect() error {

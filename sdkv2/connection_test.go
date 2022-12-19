@@ -177,6 +177,56 @@ func TestConnection_ReattachActiveAttachmentOnReconnect(t *testing.T) {
 	assert.True(t, attached)
 }
 
+func TestConnection_Detach(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	conn.Attach("foo", func() {}, func(m Message) {})
+	conn.Detach("foo")
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
+	fakeConn.Outgoing = encodeDetachedMessage("foo")
+
+	assert.Nil(t, conn.Recv())
+	assert.Equal(t, 0, len(conn.attachments.Detaching()))
+}
+
+func TestConnection_DetachNotAttachedOrAttaching(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	// Detaching a topic thats not attached or attaching should do nothing.
+	conn.Detach("foo")
+	assert.True(t, fakeConn.NextIncoming() == nil)
+}
+
+func TestConnection_ResendDetachingOnReconnect(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := newFakeConnection(fakeConn)
+
+	conn.Attach("foo", func() {}, func(m Message) {})
+	conn.Detach("foo")
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodeAttachMessage("foo"))
+	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
+
+	// Reconnect before responding. This should cause the client to resend
+	// the DETACH message.
+	conn.Reconnect()
+
+	assert.Equal(t, fakeConn.NextIncoming(), encodeDetachMessage("foo"))
+
+	// Not respond and check clears.
+	fakeConn.Outgoing = encodeDetachedMessage("foo")
+	assert.Nil(t, conn.Recv())
+	assert.Equal(t, 0, len(conn.attachments.Detaching()))
+
+	// Reconnect again and not the client shouldn't do anything.
+	conn.Reconnect()
+	assert.True(t, fakeConn.NextIncoming() == nil)
+}
+
 func newFakeConnection(fakeConn *fakeConn) *connection {
 	dialer := &fakeDialer{
 		conn: fakeConn,

@@ -30,9 +30,16 @@ The client tracks the offset of the most recent message received on the topic,
 or the offset contained in `ATTACHED` if not yet received any messages.
 
 If the connection drops, the client automatically reconnects. When a new
-connection succeeds an `ATTACH` message for all subscribed topics is sent
-containing this tracked offset to recover any messages missed while
+connection succeeds an `ATTACH` message for all attached and attaching topics
+is sent containing this tracked offset to recover any messages missed while
 disconnected.
+
+## Detach
+To unsubscribe the client sends a `DETACH` request with the topic name. This
+is retried on each reconnect until a `DETACHED` response is received.
+
+Note if the user subscribes to the topic again before receiving `DETACHED` it
+stops retrying.
 
 ## Protocol
 The Figg protocol uses a custom binary protocol to encode messages.
@@ -69,3 +76,15 @@ field is unused)
 * Fields
   * `topic` (string)
   * `offset` (uint64)
+
+#### DETACH
+* Message type: `3`
+* Direction: Client -> Server
+* Fields
+  * `topic` ([]byte)
+
+#### DETACHED
+* Message type: `4`
+* Direction: Server -> Client
+* Fields
+  * `topic` ([]byte)

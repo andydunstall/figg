@@ -166,3 +166,27 @@ func encodeAttachedMessage(topic string, topicOffset uint64) []byte {
 
 	return buf
 }
+
+func encodeDetachMessage(topic string) []byte {
+	payloadLen := uint32Len + len(topic)
+
+	buf := make([]byte, headerLen+payloadLen)
+	offset := encodeHeader(buf, 0, TypeDetach, uint32(payloadLen))
+
+	// Topic.
+	encodeBytes(buf, offset, []byte(topic))
+
+	return buf
+}
+
+func encodeDetachedMessage(topic string) []byte {
+	payloadLen := uint32Len + len(topic)
+
+	buf := make([]byte, headerLen+payloadLen)
+	offset := encodeHeader(buf, 0, TypeDetached, uint32(payloadLen))
+
+	// Topic.
+	encodeBytes(buf, offset, []byte(topic))
+
+	return buf
+}
