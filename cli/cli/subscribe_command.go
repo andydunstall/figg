@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 
-	figg "github.com/andydunstall/figg/sdk"
+	figg "github.com/andydunstall/figg/sdkv2"
 	"github.com/spf13/cobra"
 )
 
@@ -38,14 +37,12 @@ func (c *SubscribeCommand) CobraCommand() *cobra.Command {
 }
 
 func (c *SubscribeCommand) run(topic string) error {
-	client, err := figg.NewFigg(&figg.Config{
-		Addr: c.Config.Addr,
-	})
+	client, err := figg.Connect(c.Config.Addr)
 	if err != nil {
 		return err
 	}
-	client.Subscribe(context.Background(), topic, func(topic string, m []byte) {
-		fmt.Println("<-", string(m))
+	client.Subscribe(topic, func(m figg.Message) {
+		fmt.Println("<-", string(m.Data))
 	})
 
 	select {}

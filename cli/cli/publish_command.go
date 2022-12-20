@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"context"
-	"time"
-
-	figg "github.com/andydunstall/figg/sdk"
+	figg "github.com/andydunstall/figg/sdkv2"
 	"github.com/spf13/cobra"
 )
 
@@ -39,14 +36,11 @@ func (c *PublishCommand) CobraCommand() *cobra.Command {
 }
 
 func (c *PublishCommand) run(topic string, message []byte) error {
-	client, err := figg.NewFigg(&figg.Config{
-		Addr: c.Config.Addr,
-	})
+	client, err := figg.Connect(c.Config.Addr)
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	return client.Publish(ctx, topic, message)
+	client.Publish(topic, message)
+	return nil
 }

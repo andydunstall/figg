@@ -13,9 +13,10 @@ require (
 )
 
 require github.com/andydunstall/figg/sdk v0.0.0
-
 replace github.com/andydunstall/figg/sdk v0.0.0 => ../sdk
 
-require github.com/andydunstall/figg/utils v0.0.0 // indirect
+require github.com/andydunstall/figg/sdkv2 v0.0.0
+replace github.com/andydunstall/figg/sdkv2 v0.0.0 => ../sdkv2
 
+require github.com/andydunstall/figg/utils v0.0.0 // indirect
 replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
