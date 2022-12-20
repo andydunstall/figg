@@ -118,5 +118,8 @@ func (c *Connection) onAttach(name string) {
 }
 
 func (c *Connection) onAttachFromOffset(name string, offset uint64) {
-	// TODO(AD) Subscribe from offset
+	c.subscriptions.AddSubscriptionFromOffset(name, offset)
+
+	// TODO(AD) include offset
+	c.conn.Write(utils.EncodeAttachedMessage(name, 0))
 }
