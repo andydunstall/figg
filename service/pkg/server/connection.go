@@ -94,7 +94,7 @@ func (c *Connection) Recv() error {
 }
 
 func (c *Connection) Close() error {
-	return nil
+	return c.conn.Close()
 }
 
 func (c *Connection) onMessage(messageType utils.MessageType, offset int, b []byte) int {

@@ -40,10 +40,8 @@ func (s *Server) stream(conn *Connection, addr string) {
 
 	for {
 		if err := conn.Recv(); err != nil {
-			s.logger.Debug(
-				"client connection closed",
-				zap.Error(err),
-			)
+			s.logger.Debug("client connection closed")
+			return
 		}
 	}
 }
