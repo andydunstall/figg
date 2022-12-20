@@ -13,6 +13,8 @@ var (
 // The full design of the commit logs is described in the docs.
 type CommitLog struct {
 	segments *Segments
+	// persisted indicates the commit log segments should be persisted to disk.
+	persisted bool
 	// segmentSize contains the configured size of each segment in the log.
 	segmentSize uint64
 	// dir is the directory to persist messages to.
@@ -20,9 +22,10 @@ type CommitLog struct {
 }
 
 // NewCommitLog creates an empty commit log in the given directory.
-func NewCommitLog(segmentSize uint64, dir string) *CommitLog {
+func NewCommitLog(persisted bool, segmentSize uint64, dir string) *CommitLog {
 	return &CommitLog{
 		segments:    NewSegments(),
+		persisted:   persisted,
 		segmentSize: segmentSize,
 		dir:         dir,
 	}
@@ -84,6 +87,11 @@ func (c *CommitLog) Flush() error {
 
 // persist swaps the given segment with a persisted file segment.
 func (c *CommitLog) persist(s Segment) error {
+	// If not persisted nothing to do.
+	if !c.persisted {
+		return nil
+	}
+
 	fileSegment, err := s.Persist(c.dir)
 	if err != nil {
 		return err

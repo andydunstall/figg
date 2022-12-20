@@ -34,7 +34,10 @@ func (a *nopAttachment) Send(ctx context.Context, m Message) {
 }
 
 func TestTopic_PublishMultipleMessages(t *testing.T) {
-	topic, err := NewTopic("foo", "data/"+uuid.New().String())
+	topic, err := NewTopic("mytopic", Options{
+		Persisted:   false,
+		SegmentSize: 1000,
+	})
 	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
@@ -58,7 +61,10 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
-	topic, err := NewTopic("foo", "data/"+uuid.New().String())
+	topic, err := NewTopic("mytopic", Options{
+		Persisted:   false,
+		SegmentSize: 1000,
+	})
 	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
@@ -69,7 +75,10 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 }
 
 func TestTopic_GetInitialMessage(t *testing.T) {
-	topic, err := NewTopic("foo", "data/"+uuid.New().String())
+	topic, err := NewTopic("mytopic", Options{
+		Persisted:   false,
+		SegmentSize: 1000,
+	})
 	assert.Nil(t, err)
 
 	_, err = topic.GetMessage(topic.Offset())
@@ -80,7 +89,11 @@ func benchmarkTopicPublish(topicName string, publishes int, subscribers int, mes
 	dir := "data/" + uuid.New().String()
 	defer os.RemoveAll(dir)
 
-	broker := NewBroker(dir)
+	broker := NewBroker(Options{
+		Persisted:   true,
+		SegmentSize: 1 << 22,
+		Dir:         dir,
+	})
 
 	message := make([]byte, messageLen)
 	rand.Read(message)
@@ -106,7 +119,11 @@ func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
 	dir := "data/" + uuid.New().String()
 	defer os.RemoveAll(dir)
 
-	broker := NewBroker(dir)
+	broker := NewBroker(Options{
+		Persisted:   true,
+		SegmentSize: 1 << 22,
+		Dir:         dir,
+	})
 
 	message := make([]byte, messageLen)
 	rand.Read(message)

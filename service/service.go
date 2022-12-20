@@ -12,7 +12,11 @@ import (
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
 	logger.Info("starting figg service", zap.Object("config", config))
 
-	server := server.NewServer(topic.NewBroker(config.DataDir), logger)
+	server := server.NewServer(topic.NewBroker(topic.Options{
+		Persisted:   !config.CommitLogInMemory,
+		Dir:         config.CommitLogDir,
+		SegmentSize: config.CommitLogSegmentSize,
+	}), logger)
 
 	lis, err := net.Listen("tcp", config.Addr)
 	if err != nil {

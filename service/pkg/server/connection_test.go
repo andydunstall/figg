@@ -5,7 +5,6 @@ import (
 
 	"github.com/andydunstall/figg/service/pkg/topic"
 	"github.com/andydunstall/figg/utils"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,8 +49,7 @@ func (c *fakeConn) Close() error {
 }
 
 func TestConnection_Attach(t *testing.T) {
-	fakeConn := &fakeConn{}
-	conn := NewConnection(fakeConn, topic.NewBroker("data/"+uuid.New().String()))
+	conn, fakeConn := newFakeConnection()
 
 	fakeConn.Incoming = utils.EncodeAttachMessage("foo")
 
@@ -64,8 +62,7 @@ func TestConnection_Attach(t *testing.T) {
 // TODO(AD) Test attached returns offset
 
 func TestConnection_Publish(t *testing.T) {
-	fakeConn := &fakeConn{}
-	conn := NewConnection(fakeConn, topic.NewBroker("data/"+uuid.New().String()))
+	conn, fakeConn := newFakeConnection()
 
 	// Publish a message and expect to be ACK'ed
 	for seqNum := uint64(0); seqNum != 10; seqNum++ {
@@ -76,22 +73,38 @@ func TestConnection_Publish(t *testing.T) {
 }
 
 func TestConnection_PublishSendMessagesToAttached(t *testing.T) {
-	broker := topic.NewBroker("data/" + uuid.New().String())
+	broker := topic.NewBroker(topic.Options{
+		Persisted:   false,
+		SegmentSize: 1000,
+	})
 
 	// Add a connection subscribing to the topic.
-	subFakeConn := &fakeConn{}
-	subConn := NewConnection(subFakeConn, broker)
+	subConn, subFakeConn := newFakeConnectionWithBroker(broker)
 	subFakeConn.Incoming = utils.EncodeAttachMessage("foo")
 	assert.Nil(t, subConn.Recv())
 	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeAttachedMessage("foo", 0))
 
 	// Add another connection and publish to the topic.
-	pubFakeConn := &fakeConn{}
-	pubConn := NewConnection(pubFakeConn, broker)
+	pubConn, pubFakeConn := newFakeConnectionWithBroker(broker)
 	pubFakeConn.Incoming = utils.EncodePublishMessage("foo", 0, []byte("bar"))
 	assert.Nil(t, pubConn.Recv())
 
 	// Check the subscriber connection receives the message.
 	assert.Nil(t, subConn.Recv())
 	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeDataMessage("foo", 7, []byte("bar")))
+}
+
+func newFakeConnection() (*Connection, *fakeConn) {
+	fakeConn := &fakeConn{}
+	conn := NewConnection(fakeConn, topic.NewBroker(topic.Options{
+		Persisted:   false,
+		SegmentSize: 1000,
+	}))
+	return conn, fakeConn
+}
+
+func newFakeConnectionWithBroker(broker *topic.Broker) (*Connection, *fakeConn) {
+	fakeConn := &fakeConn{}
+	conn := NewConnection(fakeConn, broker)
+	return conn, fakeConn
 }

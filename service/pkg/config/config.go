@@ -8,7 +8,9 @@ import (
 type Config struct {
 	Addr string `short:"a" long:"addr" description:"Listen address for pub/sub clients" default:"127.0.0.1:8119"`
 
-	DataDir string `short:"d" long:"dir" description:"Directory to store topic data" default:"./data"`
+	CommitLogInMemory    bool   `long:"commitlog.inmemory" description:"Whether the commit log should be in-memory only"`
+	CommitLogDir         string `long:"commitlog.dir" description:"The directory to store the commit log segments if persisted" default:"./data"`
+	CommitLogSegmentSize uint64 `long:"commitlog.segment-size" description:"The size of the commit log segments to use" default:"4194304"`
 
 	CPUProfile    string `long:"cpuprofile" description:"File to output CPU profile" default:""`
 	MemoryProfile string `long:"memoryprofile" description:"File to output memory profile" default:""`
@@ -17,7 +19,11 @@ type Config struct {
 
 func (c Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("addr", c.Addr)
-	e.AddString("data-dir", c.DataDir)
+
+	e.AddBool("commitlog.inmemory", c.CommitLogInMemory)
+	e.AddString("commitlog.dir", c.CommitLogDir)
+	e.AddUint64("commitlog.segment-size", c.CommitLogSegmentSize)
+
 	e.AddString("cpu-profile", c.CPUProfile)
 	e.AddString("memory-profile", c.MemoryProfile)
 	e.AddBool("verbose", c.Verbose)

@@ -10,11 +10,8 @@ import (
 )
 
 func TestCommitLog_AppendThenLookupOneSegment(t *testing.T) {
-	dir := "data/" + uuid.New().String()
-	defer os.RemoveAll(dir)
-
 	// Use a large segment size so all messages fit in the same segment.
-	log := NewCommitLog(100, dir)
+	log := NewCommitLog(false, 100, "")
 	assert.Nil(t, log.Append([]byte("foo")))
 	assert.Nil(t, log.Append([]byte("bar")))
 	assert.Nil(t, log.Append([]byte("car")))
@@ -36,11 +33,8 @@ func TestCommitLog_AppendThenLookupOneSegment(t *testing.T) {
 }
 
 func TestCommitLog_AppendThenLookupMultiSegment(t *testing.T) {
-	dir := "data/" + uuid.New().String()
-	defer os.RemoveAll(dir)
-
 	// Use a small segment size so each message has its own segment.
-	log := NewCommitLog(5, dir)
+	log := NewCommitLog(false, 5, "")
 	assert.Nil(t, log.Append([]byte("foo")))
 	assert.Nil(t, log.Append([]byte("bar")))
 	assert.Nil(t, log.Append([]byte("car")))
@@ -65,8 +59,9 @@ func TestCommitLog_AppendThenLookupPersistedSegment(t *testing.T) {
 	dir := "data/" + uuid.New().String()
 	defer os.RemoveAll(dir)
 
-	// Use a small segment size so each message has its own segment.
-	log := NewCommitLog(5, dir)
+	// Use a small segment size so each message has its own segment. Flush
+	// each to disk so lookup goes to disk.
+	log := NewCommitLog(false, 5, dir)
 	assert.Nil(t, log.Append([]byte("foo")))
 	assert.Nil(t, log.Flush())
 	assert.Nil(t, log.Append([]byte("bar")))
@@ -94,7 +89,7 @@ func benchmarkCommitLog(appends int, messageLen int) {
 	dir := "data/" + uuid.New().String()
 	defer os.RemoveAll(dir)
 
-	log := NewCommitLog(1<<24, dir)
+	log := NewCommitLog(true, 1<<24, dir)
 
 	message := make([]byte, messageLen)
 	rand.Read(message)

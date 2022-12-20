@@ -9,15 +9,15 @@ type Broker struct {
 	// Mutex protecting the below fields.
 	mu sync.Mutex
 
-	topics map[string]*Topic
-	dir    string
+	topics  map[string]*Topic
+	options Options
 }
 
-func NewBroker(dir string) *Broker {
+func NewBroker(options Options) *Broker {
 	return &Broker{
-		mu:     sync.Mutex{},
-		topics: map[string]*Topic{},
-		dir:    dir,
+		mu:      sync.Mutex{},
+		topics:  map[string]*Topic{},
+		options: options,
 	}
 }
 
@@ -30,7 +30,7 @@ func (b *Broker) GetTopic(name string) (*Topic, error) {
 	if topic, ok := b.topics[name]; ok {
 		return topic, nil
 	}
-	topic, err := NewTopic(name, b.dir)
+	topic, err := NewTopic(name, b.options)
 	if err != nil {
 		return nil, err
 	}

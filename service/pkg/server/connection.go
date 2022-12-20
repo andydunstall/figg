@@ -12,6 +12,8 @@ const (
 	readBufferLen = 1 << 15 // 32 KB
 )
 
+// ConnectionAttachment implements a topic attachment to send messages to the
+// connection.
 type ConnectionAttachment struct {
 	conn *Connection
 }
@@ -23,6 +25,7 @@ func NewConnectionAttachment(conn *Connection) topic.Attachment {
 }
 
 func (c *ConnectionAttachment) Send(ctx context.Context, m topic.Message) {
+	// TODO(AD) Can't block, write to background thread.
 	c.conn.conn.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
 }
 

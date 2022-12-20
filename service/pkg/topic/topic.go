@@ -6,10 +6,6 @@ import (
 	"github.com/andydunstall/figg/service/pkg/commitlog"
 )
 
-const (
-	SegmentSize = 1 << 22 // 4MB
-)
-
 type Message struct {
 	Topic   string
 	Message []byte
@@ -32,10 +28,15 @@ type Topic struct {
 	offset      uint64
 }
 
-func NewTopic(name string, dir string) (*Topic, error) {
+func NewTopic(name string, options Options) (*Topic, error) {
+	log := commitlog.NewCommitLog(
+		options.Persisted,
+		options.SegmentSize,
+		options.Dir+"/"+name,
+	)
 	return &Topic{
 		name:        name,
-		log:         commitlog.NewCommitLog(SegmentSize, dir),
+		log:         log,
 		mu:          sync.Mutex{},
 		subscribers: []*Subscription{},
 		offset:      0,
