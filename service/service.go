@@ -10,7 +10,7 @@ import (
 )
 
 func Run(config config.Config, logger *zap.Logger, doneCh <-chan interface{}) {
-	logger.Info("starting figg service", zap.String("addr", config.Addr))
+	logger.Info("starting figg service", zap.Object("config", config))
 
 	server := server.NewServer(topic.NewBroker(config.DataDir), logger)
 
