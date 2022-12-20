@@ -9,5 +9,5 @@ func setupLogger(debugMode bool) *zap.Logger {
 		logger, _ := zap.NewDevelopment()
 		return logger
 	}
-	return nil
+	return zap.NewNop()
 }
