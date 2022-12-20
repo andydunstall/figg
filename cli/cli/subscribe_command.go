@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	figg "github.com/andydunstall/figg/sdkv2"
+	figg "github.com/andydunstall/figg/sdk"
 	"github.com/spf13/cobra"
 )
 

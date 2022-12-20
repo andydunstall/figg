@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -44,27 +43,23 @@ func (c *StreamCommand) CobraCommand() *cobra.Command {
 }
 
 func (c *StreamCommand) run() error {
-	pubStateSubscriber := figg.NewChannelStateSubscriber()
-	publisher, err := figg.NewFigg(&figg.Config{
-		Addr:            c.PubAddr,
-		StateSubscriber: pubStateSubscriber,
-	})
+	publisher, err := figg.Connect(c.PubAddr, figg.WithConnStateChangeCB(func(s figg.ConnState) {
+		fmt.Println("pub state", s)
+	}))
 	if err != nil {
 		return err
 	}
 
-	subStateSubscriber := figg.NewChannelStateSubscriber()
-	subscriber, err := figg.NewFigg(&figg.Config{
-		Addr:            c.SubAddr,
-		StateSubscriber: subStateSubscriber,
-	})
+	subscriber, err := figg.Connect(c.SubAddr, figg.WithConnStateChangeCB(func(s figg.ConnState) {
+		fmt.Println("sub state", s)
+	}))
 	if err != nil {
 		return err
 	}
 
 	last := 0
-	subscriber.Subscribe(context.Background(), "stream-topic", func(topic string, m []byte) {
-		n, _ := strconv.Atoi(string(m))
+	subscriber.Subscribe("stream-topic", func(m figg.Message) {
+		n, _ := strconv.Atoi(string(m.Data))
 		if last != 0 && n != last+1 {
 			panic("out of order messages")
 		}
@@ -80,12 +75,8 @@ func (c *StreamCommand) run() error {
 	for {
 		select {
 		case <-ticker.C:
-			publisher.Publish(context.Background(), "stream-topic", []byte(fmt.Sprintf("%d", i)))
+			publisher.Publish("stream-topic", []byte(fmt.Sprintf("%d", i)))
 			i++
-		case state := <-subStateSubscriber.Ch():
-			fmt.Println("sub state", figg.StateToString(state))
-		case state := <-pubStateSubscriber.Ch():
-			fmt.Println("pub state", figg.StateToString(state))
 		}
 	}
 

@@ -25,7 +25,3 @@ replace github.com/andydunstall/figg/fcm/sdk => ../fcm/sdk
 require github.com/andydunstall/figg/utils v0.0.0 // indirect
 
 replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
-
-require github.com/andydunstall/figg/sdkv2 v0.0.0
-
-replace github.com/andydunstall/figg/sdkv2 => ../sdkv2

@@ -1,117 +1,136 @@
 # Client Protocol
-This describes how the Figg SDK interacts with the backend.
-
-**WIP: This describes a custom binary protocol though Figg currently still uses
-less efficient msgpack encoded messages**
-
-## Transports
-TCP is the only supported transport.
 
 ## Connection
-When the client is created it attempts to connect to the server.
+Clients connect to Figg over TCP. Since Figg currently only supports a single
+node, the address of that node is passed to the client.
 
-The address should be a load balancer routing the request to a random node
-in the nearest region.
-
-### Heartbeats
-Once connected the client must send a `PING` message every 5 seconds
-(configurable), which the server responds with a `PONG`. This `PING` includes a
-timestamp so the client can monitor the latency between itself and the server.
-
-If the client doesn't get a `PONG` by the time it next sends a `PING` it assumes
-it has disconnected so reconnects.
-
-Also if the server doesn't get a `PING` within 10 seconds of the initial
-connection request or the last `PING` it assumes the client has disconnected and
-closes the connection.
+### Ping/Pong
+*TODO*
 
 ### Reconnect
-If the connection drops clients reconnect. Retries use exponential backoff,
-calculated as `100ms * min(2**num_attempts, 100)`.
+If the client detacts the connection has dropped, either by pings timing our
+or `read` returning an error, it will automatically reconnect. The client
+currently retries forever, using exponential backoff by to avoid overloading
+the server (though the user can provide a custom backoff strategy).
+
+A user can register to be notified about connection state events, such as
+disconnected and connected.
+
+On reconnecting the client will handle re-sending any required messages as
+described below.
 
 ## Topic
-### Publish
-A user publishes a message by calling `client.Publish(topic, message)`. The
-SDK will send a protocol message with the `PUBLISH` type. This includes the
-users message payload, which is just an opaque seqeuence of bytes, the topic
-name, and a sequence number.
+Clients publish and subscribe to topics. Message are is just an opaque blob
+of bytes.
 
-This sequence number is incremented for each message sent by the client
-(using the same counter for each connection). Though resends use the same
-sequence number as the initial attempt.
+Each message published to a topic is assigned a `uint64` offset in the topic.
+This offset points to the next message in the topic. This is used by the client
+to subscribe from the offset of the last received message, which will resume
+from the next message in the topic rather than the most recent. See
+[topics.md](./topics.md) for details.
 
-The sequence number is used to acknowledge messages. Once the server has
-processed a message it will respond with a `ACK` message including the
-highest sequence number it has acknowledged.
+### Attachment
+To subscribe to messages published to a topic the client sends an `ATTACH`
+request. This may include an offset field containing the offset of an old
+message message received (typically the last message received to ensure
+continuity).
 
-If messages are not acknowledged within 2 seconds client retries.
+The server responds with an `ATTACHED` message containing the offset the
+subscription has started from. If no offset was included in `ATTACH` this will
+be the offset of the most recent message.
 
-### Subscribe
-A user subscribes to a channel with `client.Subscribe(topic)`. The SDK will
-attach to this topic by sending an `ATTACH` message with the topic name. Once
-the server has attached (by connecting to the coordinator for that topic) it
-will respond with an `ATTACHED` response. Once attached the server forwards
-all messages on the topic to the client in `PAYLOAD` messages.
+Note the offset may not match the requested offset. This happens if the
+requested offset is expired (where the expiry is configurable on the server).
+In this case the server uses the offset of the oldest on the topic.
 
-This `PAYLOAD` message contains the topic, the user payload and a serial
-used to uniquely identify the message on the topic. Note this serial is
-different from the sequence number used when publishing, and is used to
-reattach if the connection drops (see below).
+#### Messages
+Once attached the client receives messages from the topic since the attachment
+offset. This will stream historical messages (when the offset is less than the
+latest message) as fast as it can, then new messages will be sent at they are
+published.
 
-The SDK then calls the user provided subscriber with the payload containing
-a message published on the topic.
+Messages are received as `DATA` messages, which contains the topic name,
+offset and the published data.
 
-**Reattach**
+#### Detach
+To unsubscribe the client sends a `DETACH` request. The server responds with
+a `DETACHED` message so the client can clear any state and stop retrying on
+reconnect.
 
-When the connection to the server is dropped, we could potentially miss
-messages published on the topic.
+#### Reconnect
+If the client disconnects, once it reconnects it tries to recover from where it
+left off, maintaining message continuity.
 
-To handle this, when a new connection is established, the SDK reattaches to
-all previously attached topics and includes the serial of the last message
-on that topic. The server then starts attaches from that point so sends any
-messages we may have missed (as long as that message is still retained by the
-server). The client detects whether we have missed messages when the serial
-in the `ATTACHED` response doesn't match the serial it requested in `ATTACH`.
+On reconnect any attaching attachments, where an `ATTACH` message has been sent
+but not recieved an `ATTACHED` response, will be resent (with the same offset if
+given).
+
+For attached topics, the client tracks the offset of the last message recieved
+(or the offset from `ATTACHED` if no messages have been received). When the
+client reconnects it sends an `ATTACH` with this tracked offset so it can
+resume from where it left off.
+
+Any detaching topics, where they have sent `DETACH` but not received `DETACHED`,
+will also resend the `DETACH` message (unless it has since been re-attached).
+
+## Publish
+The client publishes messages by sending `PUBLISH` messages.
+
+Note the client doesn't need to be attached to publish. They only attach to
+subscribe.
+
+To guarantee delivery, the client must retry any messages that have not been
+received by the server.
+
+To acheive this, the client assigns each published message a unique sequence
+number (which must be greater than all previous published messages). It includes
+the sequence number in the `PUBLISH` message, sends this to the server then
+stores all unacknowledged messages.
+
+Once the server has processed the message it responds with an `ACK` that contains
+the sequence number of the last message processed. When the client receives this
+`ACK` it can clear any stored messages with a sequence number equal to or less
+than this number.
+
+If the clients connection drops, when it reconnects it resends all unacknowleged
+messages (in order).
+
+Note the connection could drop after the server processes the publish but before
+it sends the ACK, which would cause the client to resend the message leading
+to duplicates. This means the service provides at least once delivery, rather
+than exactly once delivery, since guaranteeing exactly once delivery would add
+so much overhead the service would be too slow.
+
+In the future should probably limit the number of pending messages waiting to
+be acknowledged but for now its unbounded.
 
 ## Protocol
-The Figg protocol uses a custom binary protocol to encode all messages. Note
-started with msgpack though profiling found this to be too slow.
+The Figg protocol uses a simple binary protocol to encode messages.
 
-### Header
-Each message has a header containing:
-* `uint16` message type, used for routing the message to the appropriate
-handler,
-* `uint32` data size used for framing when running over TCP, which is currently
-not needed given only WebSockets are supported as a transport but adding to
-support TCP in the future
-```
-0                   1                   2                   3   
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|         Message Type          |           Reserved            |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Payload Size                         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-```
+Each messages starts with an 8 byte header containing:
+* Message type: `uint16`
+  * Used for routing the message to the appropriate handler,
+* Protocol version: `uint16`
+  * Currently `1`
+* Payload size: `uint32`
+  * Size of the messge payload in bytes
 
-### Data Types
-Encoding for the supported data types:
+The payloads contain zero or more fields. Variable size fields are encoded
+as `[]byte` and prefixed with a `uint32` containing its size.
 
-#### Strings
-Strings are used for metadata like topic names and serials so should be
-fairly small, so are prefixed with a `uint16` length.
+Integers are encoded in network byte order.
 
-#### Bytes
-Byte arrays contain the channel messages so could be fairly large, so are
-prefixed with a `uint32` length.
-
-### Types
+### Messages
 #### ATTACH
 * Message type: `1`
 * Direction: Client -> Server
 * Fields
-  * `topic` (string)
-  * `serial` (string)
+  * `flags` `uint16`
+    * Bit 1: If `1` subscribes from a particular offset given in the payload,
+otherwise subscribes from the latest message on the topic (and the `offset`
+field is unused)
+  * `topic` ([]byte)
+  * `offset` (uint64)
 
 #### ATTACHED
 * Type: `2`
@@ -119,57 +138,38 @@ prefixed with a `uint32` length.
 * Direction: Server -> Client
 * Fields
   * `topic` (string)
-  * `serial` (string)
+  * `offset` (uint64)
 
 #### DETACH
-* Type: `3`
-* Name: `detach`
+* Message type: `3`
 * Direction: Client -> Server
 * Fields
-  * `topic` (string)
+  * `topic` ([]byte)
 
 #### DETACHED
-* Type: `4`
-* Name: `detached`
+* Message type: `4`
 * Direction: Server -> Client
 * Fields
-  * `topic` (string)
+  * `topic` ([]byte)
 
 #### PUBLISH
-* Type: `4`
-* Name: `publish`
+* Message type: `5`
 * Direction: Client -> Server
 * Fields
-  * `topic` (string)
-  * `message` (uint8[])
-  * `sequence_number` (uint32)
+  * `topic` ([]byte)
+  * `seq_num` (uint64)
+  * `data` ([]byte)
 
 #### ACK
-* Type: `5`
-* Name: `ack`
+* Message type: `6`
 * Direction: Server -> Client
 * Fields
-  * `sequence_number` (uint32)
+  * `seq_num` (uint64)
 
-#### PAYLOAD
-* Type: `7`
-* Name: `payload`
+#### DATA
+* Message type: `7`
 * Direction: Server -> Client
 * Fields
-  * `topic` (string)
-  * `serial` (string)
-  * `message` (uint8[])
-
-#### PING
-* Type: `8`
-* Name: `ping`
-* Direction: Client -> Server
-* Fields
-  * `timestamp` (uint64)
-
-#### PONG
-* Type: `9`
-* Name: `pong`
-* Direction: Server -> Client
-* Fields
-  * `timestamp` (uint64)
+  * `topic` ([]byte)
+  * `offset` (uint64)
+  * `data` ([]byte)

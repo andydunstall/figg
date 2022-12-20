@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"time"
@@ -65,14 +64,11 @@ func (c *BenchCommand) runPublish() error {
 }
 
 func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	publisher, err := c.connectedClient(ctx)
+	publisher, err := c.connectedClient()
 	if err != nil {
 		return err
 	}
-	defer publisher.Shutdown()
+	defer publisher.Close()
 
 	message := make([]byte, payloadLen)
 	rand.Read(message)
@@ -80,9 +76,7 @@ func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != c.publishes; i++ {
-		if err := publisher.Publish(context.Background(), "bench-publish", message); err != nil {
-			return err
-		}
+		publisher.Publish("bench-publish", message)
 	}
 
 	elapsed := time.Since(start)
@@ -106,20 +100,17 @@ func (c *BenchCommand) runSubscribe() error {
 }
 
 func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	publisher, err := c.connectedClient(ctx)
+	publisher, err := c.connectedClient()
 	if err != nil {
 		return err
 	}
-	defer publisher.Shutdown()
+	defer publisher.Close()
 
-	subscriber, err := c.connectedClient(ctx)
+	subscriber, err := c.connectedClient()
 	if err != nil {
 		return err
 	}
-	defer subscriber.Shutdown()
+	defer subscriber.Close()
 
 	message := make([]byte, payloadLen)
 	rand.Read(message)
@@ -128,7 +119,7 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.Subscribe(context.Background(), "bench-subscribe", func(topic string, m []byte) {
+	subscriber.Subscribe("bench-subscribe", func(m figg.Message) {
 		received++
 		if received == count {
 			close(doneCh)
@@ -138,9 +129,7 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != count; i++ {
-		if err := publisher.Publish(context.Background(), "bench-subscribe", message); err != nil {
-			return err
-		}
+		publisher.Publish("bench-subscribe", message)
 	}
 
 	<-doneCh
@@ -166,31 +155,23 @@ func (c *BenchCommand) runResume() error {
 }
 
 func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	publisher, err := c.connectedClient(ctx)
+	publisher, err := c.connectedClient()
 	if err != nil {
 		return err
 	}
-	defer publisher.Shutdown()
+	defer publisher.Close()
 
 	message := make([]byte, payloadLen)
 	rand.Read(message)
 	for i := 0; i != c.publishes; i++ {
-		if err := publisher.Publish(context.Background(), "bench-resume", message); err != nil {
-			return err
-		}
+		publisher.Publish("bench-resume", message)
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	subscriber, err := c.connectedClient(ctx)
+	subscriber, err := c.connectedClient()
 	if err != nil {
 		return err
 	}
-	defer subscriber.Shutdown()
+	defer subscriber.Close()
 
 	doneCh := make(chan interface{})
 
@@ -198,12 +179,12 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.SubscribeFromOffset(context.Background(), "bench-resume", "0", func(topic string, m []byte) {
+	subscriber.Subscribe("bench-resume", func(m figg.Message) {
 		received++
 		if received == count {
 			close(doneCh)
 		}
-	})
+	}, figg.WithOffset(0))
 
 	<-doneCh
 
@@ -217,21 +198,13 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 	return nil
 }
 
-// connectedClient returns a client after waiting for it to connect.
-func (c *BenchCommand) connectedClient(ctx context.Context) (*figg.Figg, error) {
-	stateSub := figg.NewChannelStateSubscriber()
-	client, err := figg.NewFigg(&figg.Config{
-		Addr:            c.Config.Addr,
-		StateSubscriber: stateSub,
-		Logger:          setupLogger(c.Config.Verbose),
-	})
+func (c *BenchCommand) connectedClient() (*figg.Figg, error) {
+	client, err := figg.Connect(
+		c.Config.Addr,
+		figg.WithLogger(setupLogger(c.Config.Verbose)),
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	if err = stateSub.WaitForConnected(ctx); err != nil {
-		return nil, err
-	}
-
 	return client, nil
 }

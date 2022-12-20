@@ -27,19 +27,21 @@ configuration is passed via the command line.
 See [`sdk/`](./sdk) for full usage.
 
 ```go
-config := &Config{
-	Addr: "mynode",
+// Connect with default options.
+client, err := figg.Connect("10.26.104.52:8119")
+if err != nil {
+	// handle err
 }
-client := figg.NewFigg(config)
 
-sub := client.Subscribe(ctx, "foo", func(topic string, m []byte) {
-	fmt.Println("received message", string(m))
+// Subscribe. Blocks until the server confirms the subscription is setup.
+err := client.Subscribe("foo", func(m figg.Message)) {
+	fmt.Println("message: ", string(m.Data), "offset: ", m.Offset)
 })
-defer client.Unsubscribe("foo", sub)
-
-if err := client.Publish(ctx, "foo", []byte("bar")); err != nil {
-	// ...
+if err != nil {
+	// handle err
 }
+
+client.Publish("foo", []byte("bar"))
 ```
 
 ## Benchmarking

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	fcm "github.com/andydunstall/figg/fcm/sdk"
-	figg "github.com/andydunstall/figg/sdkv2"
+	figg "github.com/andydunstall/figg/sdk"
 	"github.com/stretchr/testify/assert"
 )
 

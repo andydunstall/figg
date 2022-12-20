@@ -1,328 +1,141 @@
 package figg
 
 import (
-	"context"
-	"encoding/binary"
-	"fmt"
+	"errors"
+	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
-type Figg struct {
-	client       *Client
-	pingInterval time.Duration
-
-	stateSubscriber StateSubscriber
-	topics          *Topics
-
-	// pendingMessages contains protocol messages that must be acknowledged.
-	// On a reconnect all pending messages are retried.
-	pendingMessages *MessageQueue
-	// seqNum is the sequence number of the next protocol message that requires
-	// an acknowledgement.
-	seqNum uint64
-
-	pendingAttaches *AttachQueue
-
-	doneCh chan interface{}
-	wg     sync.WaitGroup
-
-	logger *zap.Logger
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
-func NewFigg(config *Config) (*Figg, error) {
-	figg, err := newFigg(config)
-	if err != nil {
+var (
+	ErrAlreadySubscribed = errors.New("already subscribed")
+)
+
+type Figg struct {
+	opts *Options
+	conn *connection
+
+	// shutdown is an atomic flag indicating if the client has been shutdown.
+	shutdown int32
+	wg       sync.WaitGroup
+}
+
+// Connect will attempt to connect to the given Figg node.
+func Connect(addr string, options ...Option) (*Figg, error) {
+	opts := defaultOptions(addr)
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	figg := &Figg{
+		opts:     opts,
+		shutdown: 0,
+	}
+	figg.conn = newConnection(figg.onConnStateChange, opts)
+	if err := figg.conn.Connect(); err != nil {
 		return nil, err
 	}
 
 	figg.wg.Add(1)
-	go figg.pingLoop()
+	go figg.readLoop()
 
 	return figg, nil
 }
 
-// Publishes publishes the message on the given topic.
-//
-// This doesn't not wait for the publish to be acknowledged. Similar to TCP,
-// Figg guarantees messages are published from the client in order and will
-// reconnect/retry if the publish fails, though delivery cannot be guaranteed
-// (if the client cannot reconnect).
-func (w *Figg) Publish(ctx context.Context, topic string, m []byte) error {
-	ch := make(chan error, 1)
-	w.publish(topic, m, func(err error) {
-		ch <- err
+// Publish publishes the data to the given topic. This waits for the message to
+// be acknowledged.
+func (f *Figg) Publish(name string, data []byte) {
+	ch := make(chan interface{}, 1)
+	f.conn.Publish(name, data, func() {
+		ch <- struct{}{}
 	})
-	select {
-	case err := <-ch:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	<-ch
+}
+
+// PublishNoACK is the same as Publish except it doesn't wait for the message
+// to be acknowledged
+func (f *Figg) PublishNoACK(name string, data []byte) {
+	f.conn.Publish(name, data, nil)
 }
 
 // Subscribe to the given topic.
-func (w *Figg) Subscribe(ctx context.Context, topic string, cb MessageHandler) (*MessageSubscriber, error) {
-	sub, activated := w.topics.Subscribe(topic, cb)
-	if activated {
-		// Attach to the topic.
-		ch := make(chan interface{}, 1)
-		w.attach(topic, func() {
-			ch <- struct{}{}
-		})
-		select {
-		case <-ch:
-			return sub, nil
-		case <-ctx.Done():
-			return sub, ctx.Err()
-		}
-	}
-
-	// We're already attached.
-	return sub, nil
-}
-
-// SubscribeFrom to the given topic from the given offset.
 //
-// Note this does not work when there are existing subscribers as can't update
-// the offset for those subscribers, used for testing only.
-func (w *Figg) SubscribeFromOffset(ctx context.Context, topic string, offset string, cb MessageHandler) (*MessageSubscriber, error) {
-	sub, activated := w.topics.Subscribe(topic, cb)
-	if activated {
-		// Attach to the topic.
-		ch := make(chan interface{}, 1)
-		w.attachFromOffset(topic, offset, func() {
-			ch <- struct{}{}
-		})
-		select {
-		case <-ch:
-			return sub, nil
-		case <-ctx.Done():
-			return sub, ctx.Err()
+// Note only one subscriber is allowed per topic.
+func (f *Figg) Subscribe(name string, onMessage MessageCB, options ...TopicOption) error {
+	opts := defaultTopicOptions()
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	ch := make(chan interface{}, 1)
+	onAttached := func() {
+		ch <- struct{}{}
+	}
+	if opts.FromOffset {
+		if err := f.conn.AttachFromOffset(name, opts.Offset, onAttached, onMessage); err != nil {
+			return err
+		}
+	} else {
+		if err := f.conn.Attach(name, onAttached, onMessage); err != nil {
+			return err
 		}
 	}
-	return sub, nil
-}
-
-// Unsubscribe from the given topic.
-func (w *Figg) Unsubscribe(topic string, sub *MessageSubscriber) {
-	if w.topics.Unsubscribe(topic, sub) {
-		// Ignore errors. If we arn't connected so the send fails, when we
-		// reconnect this topic won't be reattached.
-		// TODO w.client.Send(NewDetachMessage(topic))
-	}
-}
-
-func (w *Figg) Shutdown() error {
-	if err := w.client.Shutdown(); err != nil {
-		return err
-	}
-	close(w.doneCh)
-	w.wg.Wait()
+	<-ch
 	return nil
 }
 
-func newFigg(config *Config) (*Figg, error) {
-	if config.Addr == "" {
-		return nil, fmt.Errorf("config missing figg address")
-	}
-
-	pingInterval := config.PingInterval
-	if pingInterval == time.Duration(0) {
-		pingInterval = time.Second * 5
-	}
-
-	logger := config.Logger
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
-	figg := &Figg{
-		pingInterval:    pingInterval,
-		stateSubscriber: config.StateSubscriber,
-		topics:          NewTopics(),
-		pendingMessages: NewMessageQueue(),
-		pendingAttaches: NewAttachQueue(),
-		doneCh:          make(chan interface{}),
-		wg:              sync.WaitGroup{},
-		logger:          logger,
-	}
-	figg.client = NewClient(config.Addr, logger, figg.onMessage, figg.onState)
-	return figg, nil
+func (f *Figg) Unsubscribe(topic string) {
+	// Note doesn't wait for a response.
+	f.conn.Detach(topic)
 }
 
-func (w *Figg) publish(topic string, m []byte, cb func(err error)) {
-	// Publish messages must be acknowledged so add a sequence number and queue.
-	seqNum := w.seqNum
-	w.seqNum++
+func (f *Figg) Close() error {
+	// This will avoid log spam about errors when we shut down.
+	atomic.StoreInt32(&f.shutdown, 1)
 
-	buf := utils.PublishMessage(topic, seqNum, m)
-	w.pendingMessages.Push(buf, seqNum, cb)
-
-	w.logger.Debug(
-		"sending payload message",
-		zap.String("topic", topic),
-		zap.Uint64("seq-num", seqNum),
-		zap.Int("payload-len", len(m)),
-	)
-
-	// Ignore errors. If we fail to send we'll retry.
-	w.client.SendBytes(buf)
-}
-
-func (w *Figg) attach(topic string, cb func()) {
-	w.attachFromOffset(topic, "", cb)
-}
-
-func (w *Figg) attachFromOffset(topic string, offset string, cb func()) {
-	if cb != nil {
-		w.pendingAttaches.Push(topic, cb)
+	if err := f.conn.Close(); err != nil {
+		return err
 	}
 
-	w.logger.Debug(
-		"sending attach message",
-		zap.String("topic", topic),
-		zap.String("offset", offset),
-	)
+	// Closing the network connection will cause the read loop to exit.
+	f.wg.Wait()
 
-	buf := utils.AttachMessage(topic, offset)
-
-	// Ignore errors. If we arn't connected so the send fails, when we
-	// reconnect all subscribed topics are reattached.
-	w.client.SendBytes(buf)
+	return nil
 }
 
-func (w *Figg) pingLoop() {
-	defer w.wg.Done()
-
-	pingTicker := time.NewTicker(w.pingInterval)
-	defer pingTicker.Stop()
+func (f *Figg) readLoop() {
+	defer f.wg.Done()
 
 	for {
-		select {
-		case <-pingTicker.C:
-			w.ping()
-		case <-w.doneCh:
-			return
+		if err := f.conn.Recv(); err != nil {
+			if s := atomic.LoadInt32(&f.shutdown); s == 1 {
+				return
+			}
+
+			f.conn.Reconnect()
 		}
 	}
 }
 
-func (w *Figg) onState(state State) {
-	w.onConnState(state)
-
-	if w.stateSubscriber != nil {
-		w.stateSubscriber.NotifyState(state)
+func (f *Figg) onConnStateChange(state ConnState) {
+	// Avoid logging if we've been shutdown.
+	if s := atomic.LoadInt32(&f.shutdown); s == 1 {
+		return
 	}
-}
 
-func (w *Figg) onMessage(messageType utils.MessageType, b []byte) {
-	switch messageType {
-	case utils.TypePayload:
-		w.onPayloadMessage(b)
-	case utils.TypeACK:
-		w.onACKMessage(b)
-	case utils.TypeAttached:
-		w.onAttachedMessage(b)
-	}
-}
-
-func (w *Figg) onPayloadMessage(b []byte) {
-	offset := 0
-
-	topicLen := binary.BigEndian.Uint16(b[offset : offset+2])
-	offset += 2
-	topicName := string(b[offset : offset+int(topicLen)])
-	offset += int(topicLen)
-
-	offsetLen := binary.BigEndian.Uint16(b[offset : offset+2])
-	offset += 2
-	messageOffset := string(b[offset : offset+int(offsetLen)])
-	offset += int(offsetLen)
-
-	payloadLen := binary.BigEndian.Uint32(b[offset : offset+4])
-	offset += 4
-	payload := b[offset : offset+int(payloadLen)]
-
-	w.logger.Debug(
-		"on payload message",
-		zap.String("topic", topicName),
-		zap.String("offset", messageOffset),
-		zap.Int("payload-len", len(payload)),
+	f.opts.Logger.Debug(
+		"connection state change",
+		zap.String("state", state.String()),
 	)
 
-	w.topics.OnMessage(topicName, payload, messageOffset)
-}
-
-func (w *Figg) onACKMessage(b []byte) {
-	offset := 0
-
-	seqNum := binary.BigEndian.Uint64(b[offset : offset+8])
-
-	w.logger.Debug(
-		"on ack message",
-		zap.Uint64("seq-num", seqNum),
-	)
-
-	w.pendingMessages.Acknowledge(seqNum)
-}
-
-func (w *Figg) onAttachedMessage(b []byte) {
-	offset := 0
-
-	topicLen := binary.BigEndian.Uint16(b[offset : offset+2])
-	offset += 2
-	topicName := string(b[offset : offset+int(topicLen)])
-	offset += int(topicLen)
-
-	w.logger.Debug(
-		"on attached message",
-		zap.String("topic", topicName),
-	)
-
-	w.pendingAttaches.Attached(topicName)
-}
-
-func (w *Figg) onConnState(s State) {
-	w.logger.Debug(
-		"on conn state",
-		zap.String("type", StateToString(s)),
-	)
-
-	switch s {
-	case StateConnected:
-		w.onConnected()
+	if f.opts.ConnStateChangeCB != nil {
+		f.opts.ConnStateChangeCB(state)
 	}
-}
-
-func (w *Figg) onConnected() {
-	// Reattach all subscribed topics.
-	for _, topic := range w.topics.Topics() {
-		offset := w.topics.Offset(topic)
-		w.logger.Debug(
-			"reattaching",
-			zap.String("topic", topic),
-			zap.String("offset", offset),
-		)
-		// Ignore errors. If we arn't connected so the send fails, when we
-		// reconnect all subscribed topics are reattached.
-		w.attachFromOffset(topic, offset, nil)
-	}
-
-	// Send all unacknowledged messages.
-	for _, m := range w.pendingMessages.Messages() {
-		// Ignore errors. If we fail to send we'll retry.
-		w.client.SendBytes(m)
-	}
-}
-
-func (w *Figg) ping() {
-	timestamp := time.Now()
-	w.logger.Debug("sending ping", zap.Time("timestamp", timestamp))
-	m := utils.PingMessage(uint64(timestamp.UnixMilli()))
-	// Ignore any errors. If we can't send a ping we'll reconnect anyway.
-	w.client.SendBytes(m)
 }
