@@ -5,67 +5,95 @@ Clients connect to Figg over TCP. Since Figg currently only supports a single
 node, the address of that node is passed to the client.
 
 ### Ping/Pong
+*TODO*
 
 ### Reconnect
-If the client detects the connection has dropped it will automatically
-reconnect, with exponential backoff to avoid overloading the server.
+If the client detacts the connection has dropped, either by pings timing our
+or `read` returning an error, it will automatically reconnect. The client
+currently retries forever, using exponential backoff by to avoid overloading
+the server (though the user can provide a custom backoff strategy).
 
-A user callback can be provided to be notified about connection state events,
-such as disconnected and connected
+A user can register to be notified about connection state events, such as
+disconnected and connected.
 
-## Attachment
-When subscribing to a topic the client sends an `ATTACH` message containing
-the name of the topic to subscribe to. This may include an offset of the last
-message the client received, which the server will subscribe to the next message
-after this.
+On reconnecting the client will handle re-sending any required messages as
+described below.
 
-Once the server sets up the subscription it responds with an `ATTACHED` message
-containing the offset of the most recent message that will not be included in
-the subscription. The client can detect a message discontinuity if this offset
-doesn't match the requested offset, which occurs if the requested offset has
-expired.
+## Topic
+Clients publish and subscribe to topics. Message are is just an opaque blob
+of bytes.
 
-### Re-attach
-The client tracks the offset of the most recent message received on the topic,
-or the offset contained in `ATTACHED` if not yet received any messages.
+Each message published to a topic is assigned a `uint64` offset in the topic.
+This offset points to the next message in the topic. This is used by the client
+to subscribe from the offset of the last received message, which will resume
+from the next message in the topic rather than the most recent. See
+[topics.md](./topics.md) for details.
 
-If the connection drops, the client automatically reconnects. When a new
-connection succeeds an `ATTACH` message for all attached and attaching topics
-is sent containing this tracked offset to recover any messages missed while
-disconnected.
+### Attachment
+To subscribe to messages published to a topic the client sends an `ATTACH`
+request. This may include an offset field containing the offset of an old
+message message received (typically the last message received to ensure
+continuity).
 
-### Detach
-To unsubscribe the client sends a `DETACH` request with the topic name. This
-is retried on each reconnect until a `DETACHED` response is received.
+The server responds with an `ATTACHED` message containing the offset the
+subscription has started from. If no offset was included in `ATTACH` this will
+be the offset of the most recent message.
 
-Note if the user subscribes to the topic again before receiving `DETACHED` it
-stops retrying.
+Note the offset may not match the requested offset. This happens if the
+requested offset is expired (where the expiry is configurable on the server).
+In this case the server uses the offset of the oldest on the topic.
 
-### Messages
-When a client is attached to a topic, all messages published to that topic
-are sent to the client as `DATA` messages.
+#### Messages
+Once attached the client receives messages from the topic since the attachment
+offset. This will stream historical messages (when the offset is less than the
+latest message) as fast as it can, then new messages will be sent at they are
+published.
+
+Messages are received as `DATA` messages, which contains the topic name,
+offset and the published data.
+
+#### Detach
+To unsubscribe the client sends a `DETACH` request. The server responds with
+a `DETACHED` message so the client can clear any state and stop retrying on
+reconnect.
+
+#### Reconnect
+If the client disconnects, once it reconnects it tries to recover from where it
+left off, maintaining message continuity.
+
+On reconnect any attaching attachments, where an `ATTACH` message has been sent
+but not recieved an `ATTACHED` response, will be resent (with the same offset if
+given).
+
+For attached topics, the client tracks the offset of the last message recieved
+(or the offset from `ATTACHED` if no messages have been received). When the
+client reconnects it sends an `ATTACH` with this tracked offset so it can
+resume from where it left off.
+
+Any detaching topics, where they have sent `DETACH` but not received `DETACHED`,
+will also resend the `DETACH` message (unless it has since been re-attached).
 
 ## Publish
-The client publishes messages with the `PUBLISH` message type, which contains
-the topic name and message data.
+The client publishes messages by sending `PUBLISH` messages.
 
-Since the connection to the server can drop at any time, publishes must be
-acknowledged at the application level.
+Note the client doesn't need to be attached to publish. They only attach to
+subscribe.
 
-The client gives each published message a unique sequence number, that is
-incremented for each message published. Note the same sequence number counter
-is used for all publishes on the connection (which may have multiple topics).
+To guarantee delivery, the client must retry any messages that have not been
+received by the server.
 
-Once the server processes the published message it responds with an `ACK`
-containing the sequence number of the published message.
+To acheive this, the client assigns each published message a unique sequence
+number (which must be greater than all previous published messages). It includes
+the sequence number in the `PUBLISH` message, sends this to the server then
+stores all unacknowledged messages.
 
-The client must resend all publishes that have not been acknowledged when it
-reconnects, sending in the same order as the original publishes. This means
-it must store all unacknowledged messages in order, then resend once the
-client reconnects.
+Once the server has processed the message it responds with an `ACK` that contains
+the sequence number of the last message processed. When the client receives this
+`ACK` it can clear any stored messages with a sequence number equal to or less
+than this number.
 
-Once the client receives an `ACK` it can discard all messages with a sequence
-number equal to or less than that seqence number.
+If the clients connection drops, when it reconnects it resends all unacknowleged
+messages (in order).
 
 Note the connection could drop after the server processes the publish but before
 it sends the ACK, which would cause the client to resend the message leading
@@ -77,7 +105,7 @@ In the future should probably limit the number of pending messages waiting to
 be acknowledged but for now its unbounded.
 
 ## Protocol
-The Figg protocol uses a custom binary protocol to encode messages.
+The Figg protocol uses a simple binary protocol to encode messages.
 
 Each messages starts with an 8 byte header containing:
 * Message type: `uint16`
@@ -87,10 +115,10 @@ Each messages starts with an 8 byte header containing:
 * Payload size: `uint32`
   * Size of the messge payload in bytes
 
-The payloads may include zero or more fields. Variable size fields are encoded
+The payloads contain zero or more fields. Variable size fields are encoded
 as `[]byte` and prefixed with a `uint32` containing its size.
 
-Integers and encoded in network byte order.
+Integers are encoded in network byte order.
 
 ### Messages
 #### ATTACH
