@@ -74,3 +74,24 @@ func TestConnection_Publish(t *testing.T) {
 		assert.Equal(t, fakeConn.NextOutgoing(), utils.EncodeACKMessage(seqNum))
 	}
 }
+
+func TestConnection_PublishSendMessagesToAttached(t *testing.T) {
+	broker := topic.NewBroker("data/" + uuid.New().String())
+
+	// Add a connection subscribing to the topic.
+	subFakeConn := &fakeConn{}
+	subConn := NewConnection(subFakeConn, broker)
+	subFakeConn.Incoming = utils.EncodeAttachMessage("foo")
+	assert.Nil(t, subConn.Recv())
+	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeAttachedMessage("foo", 0))
+
+	// Add another connection and publish to the topic.
+	pubFakeConn := &fakeConn{}
+	pubConn := NewConnection(pubFakeConn, broker)
+	pubFakeConn.Incoming = utils.EncodePublishMessage("foo", 0, []byte("bar"))
+	assert.Nil(t, pubConn.Recv())
+
+	// Check the subscriber connection receives the message.
+	assert.Nil(t, subConn.Recv())
+	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeDataMessage("foo", 7, []byte("bar")))
+}

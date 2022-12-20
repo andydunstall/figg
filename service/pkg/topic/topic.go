@@ -1,7 +1,6 @@
 package topic
 
 import (
-	"strconv"
 	"sync"
 
 	"github.com/andydunstall/figg/service/pkg/commitlog"
@@ -14,7 +13,7 @@ const (
 type Message struct {
 	Topic   string
 	Message []byte
-	Offset  string
+	Offset  uint64
 }
 
 type Topic struct {
@@ -80,7 +79,7 @@ func (t *Topic) Publish(b []byte) error {
 	m := Message{
 		Topic:   t.name,
 		Message: b,
-		Offset:  strconv.FormatUint(t.offset, 10),
+		Offset:  t.offset,
 	}
 	for _, sub := range t.subscribers {
 		sub.Notify(m)

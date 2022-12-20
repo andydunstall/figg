@@ -29,28 +29,28 @@ func NewClientAttachment(client *Client) topic.Attachment {
 }
 
 func (a *ClientAttachment) Send(ctx context.Context, m topic.Message) {
-	topicPrefix := make([]byte, 2)
-	binary.BigEndian.PutUint16(topicPrefix, uint16(len(m.Topic)))
+	// topicPrefix := make([]byte, 2)
+	// binary.BigEndian.PutUint16(topicPrefix, uint16(len(m.Topic)))
 
-	offsetPrefix := make([]byte, 2)
-	binary.BigEndian.PutUint16(offsetPrefix, uint16(len(m.Offset)))
+	// offsetPrefix := make([]byte, 2)
+	// binary.BigEndian.PutUint16(offsetPrefix, uint16(len(m.Offset)))
 
-	messagePrefix := make([]byte, 4)
-	binary.BigEndian.PutUint32(messagePrefix, uint32(len(m.Message)))
+	// messagePrefix := make([]byte, 4)
+	// binary.BigEndian.PutUint32(messagePrefix, uint32(len(m.Message)))
 
-	header := make([]byte, 8)
-	binary.BigEndian.PutUint16(header[:2], uint16(utils.TypePayload))
+	// header := make([]byte, 8)
+	// binary.BigEndian.PutUint16(header[:2], uint16(utils.TypePayload))
 
-	messageLen := uint32(2 + len(m.Topic) + 2 + len(m.Offset) + 4 + len(m.Message))
+	// messageLen := uint32(2 + len(m.Topic) + 2 + len(m.Offset) + 4 + len(m.Message))
 
 	buf := []byte{}
-	buf = append(buf, utils.MessageHeader(utils.TypePayload, messageLen)...)
-	buf = append(buf, topicPrefix...)
-	buf = append(buf, []byte(m.Topic)...)
-	buf = append(buf, offsetPrefix...)
-	buf = append(buf, []byte(m.Offset)...)
-	buf = append(buf, messagePrefix...)
-	buf = append(buf, []byte(m.Message)...)
+	// buf = append(buf, utils.MessageHeader(utils.TypePayload, messageLen)...)
+	// buf = append(buf, topicPrefix...)
+	// buf = append(buf, []byte(m.Topic)...)
+	// buf = append(buf, offsetPrefix...)
+	// buf = append(buf, []byte(m.Offset)...)
+	// buf = append(buf, messagePrefix...)
+	// buf = append(buf, []byte(m.Message)...)
 
 	a.client.Send(ctx, buf)
 }

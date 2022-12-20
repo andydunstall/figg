@@ -3,7 +3,6 @@ package topic
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/andydunstall/figg/service/pkg/commitlog"
@@ -98,7 +97,7 @@ func (s *Subscription) resumeLoop() {
 		s.attachment.Send(nil, Message{
 			Topic:   s.topic.Name(),
 			Message: m,
-			Offset:  strconv.FormatUint(s.offset, 10),
+			Offset:  s.offset,
 		})
 	}
 }

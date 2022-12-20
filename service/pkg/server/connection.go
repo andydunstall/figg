@@ -23,7 +23,7 @@ func NewConnectionAttachment(conn *Connection) topic.Attachment {
 }
 
 func (c *ConnectionAttachment) Send(ctx context.Context, m topic.Message) {
-	// TODO(AD)
+	c.conn.conn.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
 }
 
 type NetworkConnection interface {
