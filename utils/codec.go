@@ -144,11 +144,11 @@ func EncodeAttachFromOffsetMessage(topic string, topicOffset uint64) []byte {
 
 	// Flags.
 	flags := FlagUseOffset
-	EncodeUint16(buf, offset, flags)
+	offset = EncodeUint16(buf, offset, flags)
 	// Topic.
-	EncodeBytes(buf, offset, []byte(topic))
+	offset = EncodeBytes(buf, offset, []byte(topic))
 	// Offset.
-	EncodeUint64(buf, offset, topicOffset)
+	offset = EncodeUint64(buf, offset, topicOffset)
 
 	return buf
 }
