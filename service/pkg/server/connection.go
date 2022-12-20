@@ -37,6 +37,9 @@ type Connection struct {
 	conn NetworkConnection
 	// reader reads bytes from the connection.
 	reader *utils.BufferedReader
+	// pending contains bytes read from the connection that have not been
+	// processed.
+	pending []byte
 
 	broker        *topic.Broker
 	subscriptions *topic.Subscriptions
@@ -54,14 +57,36 @@ func NewConnection(conn NetworkConnection, broker *topic.Broker) *Connection {
 
 // Recv reads from the network connection and handles the request.
 func (c *Connection) Recv() error {
+	pendingRemaining := c.processPending()
+
 	b, err := c.reader.Read()
 	if err != nil {
 		return err
 	}
 
-	// TODO(AD) handle fragmentation
-	messageType, _, _ := utils.DecodeHeader(b)
-	c.onMessage(messageType, utils.HeaderLen, b)
+	// If there are pending bytes to process, append and process in the next
+	// loop.
+	if pendingRemaining {
+		c.pending = append(c.pending, b...)
+		return nil
+	}
+
+	messageType, payloadLen, ok := utils.DecodeHeader(b)
+	if !ok {
+		c.pending = append(c.pending, b...)
+		return nil
+	}
+
+	if len(b) < utils.HeaderLen+payloadLen {
+		c.pending = append(c.pending, b...)
+		return nil
+	}
+
+	offset := c.onMessage(messageType, utils.HeaderLen, b)
+	if offset != len(b) {
+		c.pending = append(c.pending, b[offset:]...)
+	}
+
 	return nil
 }
 
@@ -122,4 +147,24 @@ func (c *Connection) onAttachFromOffset(name string, offset uint64) {
 
 	// TODO(AD) include offset
 	c.conn.Write(utils.EncodeAttachedMessage(name, 0))
+}
+
+func (c *Connection) processPending() bool {
+	if len(c.pending) == 0 {
+		return false
+	}
+
+	messageType, payloadLen, ok := utils.DecodeHeader(c.pending)
+	if !ok {
+		return true
+	}
+
+	if len(c.pending) < utils.HeaderLen+payloadLen {
+		return true
+	}
+
+	offset := c.onMessage(messageType, utils.HeaderLen, c.pending)
+	c.pending = c.pending[offset:]
+
+	return len(c.pending) == 0
 }
