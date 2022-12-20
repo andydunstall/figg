@@ -8,7 +8,7 @@ Topics store messages for a configurable on disk in a commit log.
 See [`service/pkg/topic`](../service/pkg/topic).
 
 ## Commit Log
-The commit log is split into roughly 16MB segments. Each segment is assigned an
+The commit log is split into roughly 4MB segments. Each segment is assigned an
 offset in the commit log. The most recent segment is kept in memory so publishes
 are fast, then once its full it is persisted to disk in the background.
 

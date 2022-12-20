@@ -61,6 +61,35 @@ func TestCommitLog_AppendThenLookupMultiSegment(t *testing.T) {
 	assert.Equal(t, ErrNotFound, err)
 }
 
+func TestCommitLog_AppendThenLookupPersistedSegment(t *testing.T) {
+	dir := "data/" + uuid.New().String()
+	defer os.RemoveAll(dir)
+
+	// Use a small segment size so each message has its own segment.
+	log := NewCommitLog(5, dir)
+	assert.Nil(t, log.Append([]byte("foo")))
+	assert.Nil(t, log.Flush())
+	assert.Nil(t, log.Append([]byte("bar")))
+	assert.Nil(t, log.Flush())
+	assert.Nil(t, log.Append([]byte("car")))
+	assert.Nil(t, log.Flush())
+
+	b, err := log.Lookup(0)
+	assert.Nil(t, err)
+	assert.Equal(t, []byte("foo"), b)
+
+	b, err = log.Lookup(7)
+	assert.Nil(t, err)
+	assert.Equal(t, []byte("bar"), b)
+
+	b, err = log.Lookup(14)
+	assert.Nil(t, err)
+	assert.Equal(t, []byte("car"), b)
+
+	b, err = log.Lookup(21)
+	assert.Equal(t, ErrNotFound, err)
+}
+
 func benchmarkCommitLog(appends int, messageLen int) {
 	dir := "data/" + uuid.New().String()
 	defer os.RemoveAll(dir)
