@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"github.com/andydunstall/figg/service/pkg/topic"
-	"github.com/andydunstall/figg/utils"
 	"go.uber.org/zap"
 )
 
@@ -21,25 +20,30 @@ func NewServer(broker *topic.Broker, logger *zap.Logger) *Server {
 	return s
 }
 
-func (s *Server) stream(c net.Conn) {
-	addr := c.RemoteAddr().String()
+func (s *Server) Serve(lis net.Listener) error {
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			return err
+		}
+		go s.stream(NewConnection(conn, s.broker), conn.RemoteAddr().String())
+	}
+}
+
+func (s *Server) stream(conn *Connection, addr string) {
+	defer conn.Close()
+
 	s.logger.Debug(
 		"client connected",
 		zap.String("addr", addr),
 	)
 
-	client := NewClient(utils.NewTCPConnection(c), s.broker)
-	defer client.Shutdown()
-
-	client.Serve()
-}
-
-func (s *Server) Serve(lis net.Listener) error {
 	for {
-		c, err := lis.Accept()
-		if err != nil {
-			return err
+		if err := conn.Recv(); err != nil {
+			s.logger.Debug(
+				"client connection closed",
+				zap.Error(err),
+			)
 		}
-		go s.stream(c)
 	}
 }

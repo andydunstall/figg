@@ -2,7 +2,6 @@ package figg
 
 import (
 	"errors"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -15,27 +14,6 @@ import (
 var (
 	ErrNotConnected = errors.New("not connected")
 )
-
-type reader struct {
-	r   io.Reader
-	buf []byte
-}
-
-func newReader(r io.Reader, bufLen int) *reader {
-	return &reader{
-		r:   r,
-		buf: make([]byte, bufLen),
-	}
-}
-
-// Reads bytes from the reader. Must only call from one goroutine.
-func (r *reader) Read() ([]byte, error) {
-	n, err := r.r.Read(r.buf)
-	if err != nil {
-		return nil, err
-	}
-	return r.buf[:n], err
-}
 
 type connection struct {
 	onStateChange func(state ConnState)
@@ -55,7 +33,7 @@ type connection struct {
 
 	conn net.Conn
 	// reader reads bytes from the connection.
-	reader *reader
+	reader *utils.BufferedReader
 	// pending contains bytes read from the connection that have not been
 	// processed.
 	pending []byte
@@ -284,7 +262,7 @@ func (c *connection) onConnect(conn net.Conn) {
 	defer c.mu.Unlock()
 
 	c.conn = conn
-	c.reader = newReader(conn, c.opts.ReadBufLen)
+	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
 
 	if c.onStateChange != nil {
 		c.onStateChange(CONNECTED)

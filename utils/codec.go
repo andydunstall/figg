@@ -15,8 +15,8 @@ const (
 
 	protocolVersion = uint16(1)
 
-	flagNone      = uint16(0)
-	flagUseOffset = uint16(1 << 15)
+	FlagNone      = uint16(0)
+	FlagUseOffset = uint16(1 << 15)
 )
 
 func EncodeUint16(buf []byte, offset int, n uint16) int {
@@ -126,12 +126,12 @@ func EncodeAttachMessage(topic string) []byte {
 	offset := EncodeHeader(buf, 0, TypeAttach, uint32(payloadLen))
 
 	// Flags.
-	flags := flagNone
-	EncodeUint16(buf, offset, flags)
+	flags := FlagNone
+	offset = EncodeUint16(buf, offset, flags)
 	// Topic.
-	EncodeBytes(buf, offset, []byte(topic))
+	offset = EncodeBytes(buf, offset, []byte(topic))
 	// Offset (unused as flag not set).
-	EncodeUint64(buf, offset, 0)
+	offset = EncodeUint64(buf, offset, 0)
 
 	return buf
 }
@@ -143,7 +143,7 @@ func EncodeAttachFromOffsetMessage(topic string, topicOffset uint64) []byte {
 	offset := EncodeHeader(buf, 0, TypeAttach, uint32(payloadLen))
 
 	// Flags.
-	flags := flagUseOffset
+	flags := FlagUseOffset
 	EncodeUint16(buf, offset, flags)
 	// Topic.
 	EncodeBytes(buf, offset, []byte(topic))
