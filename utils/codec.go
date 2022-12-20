@@ -197,9 +197,9 @@ func EncodePublishMessage(topic string, seqNum uint64, data []byte) []byte {
 	buf := make([]byte, HeaderLen+payloadLen)
 	offset := EncodeHeader(buf, 0, TypePublish, uint32(payloadLen))
 
-	EncodeBytes(buf, offset, []byte(topic))
-	EncodeUint64(buf, offset, seqNum)
-	EncodeBytes(buf, offset, data)
+	offset = EncodeBytes(buf, offset, []byte(topic))
+	offset = EncodeUint64(buf, offset, seqNum)
+	offset = EncodeBytes(buf, offset, data)
 
 	return buf
 }

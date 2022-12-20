@@ -85,6 +85,26 @@ func (c *Connection) onMessage(messageType utils.MessageType, offset int, b []by
 		}
 
 		return offset
+	case utils.TypePublish:
+		topicLen, offset := utils.DecodeUint32(b, offset)
+		topicName := string(b[offset : offset+int(topicLen)])
+		offset += int(topicLen)
+		seqNum, offset := utils.DecodeUint64(b, offset)
+		dataLen, offset := utils.DecodeUint32(b, offset)
+		data := b[offset : offset+int(dataLen)]
+		offset += int(dataLen)
+
+		topic, err := c.broker.GetTopic(topicName)
+		if err != nil {
+			// TODO(AD)
+		}
+		if err := topic.Publish(data); err != nil {
+			// TODO(AD)
+		}
+
+		c.conn.Write(utils.EncodeACKMessage(seqNum))
+
+		return offset
 	}
 
 	return 0

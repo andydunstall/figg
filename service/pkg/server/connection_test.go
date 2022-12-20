@@ -62,3 +62,15 @@ func TestConnection_Attach(t *testing.T) {
 // TODO(AD) attach from offset
 
 // TODO(AD) Test attached returns offset
+
+func TestConnection_Publish(t *testing.T) {
+	fakeConn := &fakeConn{}
+	conn := NewConnection(fakeConn, topic.NewBroker("data/"+uuid.New().String()))
+
+	// Publish a message and expect to be ACK'ed
+	for seqNum := uint64(0); seqNum != 10; seqNum++ {
+		fakeConn.Incoming = utils.EncodePublishMessage("foo", seqNum, []byte("bar"))
+		assert.Nil(t, conn.Recv())
+		assert.Equal(t, fakeConn.NextOutgoing(), utils.EncodeACKMessage(seqNum))
+	}
+}
