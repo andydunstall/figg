@@ -32,11 +32,8 @@ type connection struct {
 	mu sync.Mutex
 
 	conn net.Conn
-	// reader reads bytes from the connection.
+	// reader reads messages from the connection.
 	reader *utils.BufferedReader
-	// pending contains bytes read from the connection that have not been
-	// processed.
-	pending []byte
 }
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
@@ -50,7 +47,6 @@ func newConnection(onStateChange func(state ConnState), opts *Options) *connecti
 		mu:              sync.Mutex{},
 		conn:            nil,
 		reader:          nil,
-		pending:         []byte{},
 	}
 }
 
@@ -115,14 +111,12 @@ func (c *connection) Detach(name string) {
 
 // Read bytes from the connection. Must only be called from a single goroutine.
 func (c *connection) Recv() error {
-	// TODO(AD) not protected
+	// TODO(AD) not protected (written on reconnect)
 	if c.reader == nil {
 		return ErrNotConnected
 	}
 
-	pendingRemaining := c.processPending()
-
-	b, err := c.reader.Read()
+	messageType, payload, err := c.reader.Read()
 	if err != nil {
 		// Avoid logging if we are shutdown.
 		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
@@ -137,36 +131,7 @@ func (c *connection) Recv() error {
 		return err
 	}
 
-	// If there are pending bytes to process, append and process in the next
-	// loop.
-	if pendingRemaining {
-		c.mu.Lock()
-		c.pending = append(c.pending, b...)
-		c.mu.Unlock()
-		return nil
-	}
-
-	messageType, payloadLen, ok := utils.DecodeHeader(b)
-	if !ok {
-		c.mu.Lock()
-		c.pending = append(c.pending, b...)
-		c.mu.Unlock()
-		return nil
-	}
-
-	if len(b) < utils.HeaderLen+payloadLen {
-		c.mu.Lock()
-		c.pending = append(c.pending, b...)
-		c.mu.Unlock()
-		return nil
-	}
-
-	offset := c.onMessage(messageType, utils.HeaderLen, b)
-	if offset != len(b) {
-		c.mu.Lock()
-		c.pending = append(c.pending, b[offset:]...)
-		c.mu.Unlock()
-	}
+	c.onMessage(messageType, payload)
 
 	return nil
 }
@@ -216,7 +181,8 @@ func (c *connection) Close() error {
 	return c.onDisconnect()
 }
 
-func (c *connection) onMessage(messageType utils.MessageType, offset int, b []byte) int {
+func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
+	offset := 0
 	switch messageType {
 	case utils.TypeAttached:
 		topicLen, offset := utils.DecodeUint32(b, offset)
@@ -309,27 +275,4 @@ func (c *connection) onDisconnect() error {
 	}
 
 	return err
-}
-
-func (c *connection) processPending() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if len(c.pending) == 0 {
-		return false
-	}
-
-	messageType, payloadLen, ok := utils.DecodeHeader(c.pending)
-	if !ok {
-		return true
-	}
-
-	if len(c.pending) < utils.HeaderLen+payloadLen {
-		return true
-	}
-
-	offset := c.onMessage(messageType, utils.HeaderLen, c.pending)
-	c.pending = c.pending[offset:]
-
-	return len(c.pending) == 0
 }
