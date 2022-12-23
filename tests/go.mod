@@ -22,6 +22,19 @@ require (
 
 replace github.com/andydunstall/figg/fcm/sdk => ../fcm/sdk
 
-require github.com/andydunstall/figg/utils v0.0.0 // indirect
+require (
+	github.com/andydunstall/figg/utils v0.0.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/jessevdk/go-flags v1.5.0 // indirect
+	golang.org/x/sys v0.0.0-20220909162455-aba9fc2a8ff2 // indirect
+)
 
 replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
+
+require github.com/andydunstall/figg/service v0.0.0 // indirect
+
+replace github.com/andydunstall/figg/service v0.0.0 => ../service
+
+require github.com/andydunstall/figg/fcm/lib v0.0.0
+
+replace github.com/andydunstall/figg/fcm/lib v0.0.0 => ../fcm/lib

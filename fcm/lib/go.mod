@@ -1,10 +1,9 @@
-module github.com/andydunstall/figg/fcm/service
+module github.com/andydunstall/figg/fcm/lib
 
 go 1.19
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/mux v1.8.0
 	go.uber.org/zap v1.23.0
 )
 
@@ -22,7 +21,3 @@ replace github.com/andydunstall/figg/service v0.0.0 => ../../service
 require github.com/andydunstall/figg/utils v0.0.0 // indirect
 
 replace github.com/andydunstall/figg/utils v0.0.0 => ../../utils
-
-require github.com/andydunstall/figg/fcm/lib v0.0.0
-
-replace github.com/andydunstall/figg/fcm/lib v0.0.0 => ../lib

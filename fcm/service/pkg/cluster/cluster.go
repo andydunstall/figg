@@ -3,13 +3,14 @@ package cluster
 import (
 	"sync"
 
+	fcm "github.com/andydunstall/figg/fcm/lib"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type Cluster struct {
 	ID    string
-	Nodes map[string]*Node
+	Nodes map[string]*fcm.Node
 
 	logger *zap.Logger
 
@@ -19,7 +20,7 @@ type Cluster struct {
 func NewCluster(logger *zap.Logger) (*Cluster, error) {
 	cluster := &Cluster{
 		ID:     uuid.New().String()[:7],
-		Nodes:  make(map[string]*Node),
+		Nodes:  make(map[string]*fcm.Node),
 		logger: logger,
 		mu:     sync.Mutex{},
 	}
@@ -30,11 +31,11 @@ func NewCluster(logger *zap.Logger) (*Cluster, error) {
 	return cluster, nil
 }
 
-func (c *Cluster) AddNode() (*Node, error) {
+func (c *Cluster) AddNode() (*fcm.Node, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	node, err := NewNode(c.logger)
+	node, err := fcm.NewNode(c.logger)
 	if err != nil {
 		return nil, err
 	}
