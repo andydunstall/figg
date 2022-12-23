@@ -6,16 +6,9 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// Using ports that won't be used by the system.
-	PortRangeFrom = 40000
-	PortRangeTo   = 60000
-)
-
 type ClusterManager struct {
-	clusters      map[string]*Cluster
-	nodes         map[string]*Node
-	portAllocator *PortAllocator
+	clusters map[string]*Cluster
+	nodes    map[string]*Node
 
 	mu sync.Mutex
 
@@ -24,11 +17,10 @@ type ClusterManager struct {
 
 func NewClusterManager(logger *zap.Logger) *ClusterManager {
 	return &ClusterManager{
-		clusters:      make(map[string]*Cluster),
-		nodes:         make(map[string]*Node),
-		portAllocator: NewPortAllocator(PortRangeFrom, PortRangeTo),
-		mu:            sync.Mutex{},
-		logger:        logger,
+		clusters: make(map[string]*Cluster),
+		nodes:    make(map[string]*Node),
+		mu:       sync.Mutex{},
+		logger:   logger,
 	}
 }
 
@@ -52,7 +44,7 @@ func (m *ClusterManager) Add() (*Cluster, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	cluster, err := NewCluster(m.portAllocator, m.logger)
+	cluster, err := NewCluster(m.logger)
 	if err != nil {
 		return nil, err
 	}
