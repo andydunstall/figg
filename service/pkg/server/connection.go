@@ -25,8 +25,7 @@ func NewConnectionAttachment(conn *Connection) topic.Attachment {
 }
 
 func (c *ConnectionAttachment) Send(ctx context.Context, m topic.Message) {
-	// TODO(AD) Can't block, write to background thread.
-	c.conn.conn.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
+	c.conn.writer.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
 }
 
 type NetworkConnection interface {
@@ -40,6 +39,8 @@ type Connection struct {
 	conn NetworkConnection
 	// reader reads messages from the connection.
 	reader *utils.BufferedReader
+	// writer writes messages to the connection.
+	writer *utils.BufferedWriter
 
 	broker        *topic.Broker
 	subscriptions *topic.Subscriptions
@@ -49,6 +50,7 @@ func NewConnection(conn NetworkConnection, broker *topic.Broker) *Connection {
 	c := &Connection{
 		conn:   conn,
 		reader: utils.NewBufferedReader(conn, readBufferLen),
+		writer: utils.NewBufferedWriter(conn),
 		broker: broker,
 	}
 	c.subscriptions = topic.NewSubscriptions(broker, NewConnectionAttachment(c))
@@ -67,6 +69,7 @@ func (c *Connection) Recv() error {
 }
 
 func (c *Connection) Close() error {
+	c.writer.Close()
 	return c.conn.Close()
 }
 
@@ -104,7 +107,7 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) int {
 			// TODO(AD)
 		}
 
-		c.conn.Write(utils.EncodeACKMessage(seqNum))
+		c.writer.Write(utils.EncodeACKMessage(seqNum))
 
 		return offset
 	}
@@ -116,12 +119,12 @@ func (c *Connection) onAttach(name string) {
 	c.subscriptions.AddSubscription(name)
 
 	// TODO(AD) include offset
-	c.conn.Write(utils.EncodeAttachedMessage(name, 0))
+	c.writer.Write(utils.EncodeAttachedMessage(name, 0))
 }
 
 func (c *Connection) onAttachFromOffset(name string, offset uint64) {
 	c.subscriptions.AddSubscriptionFromOffset(name, offset)
 
 	// TODO(AD) include offset
-	c.conn.Write(utils.EncodeAttachedMessage(name, 0))
+	c.writer.Write(utils.EncodeAttachedMessage(name, 0))
 }
