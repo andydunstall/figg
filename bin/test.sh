@@ -14,3 +14,8 @@ pushd utils
 	go test ./... $@ || exit 1
 	echo "utils ok"
 popd
+
+pushd tests
+	go test ./... $@ || exit 1
+	echo "system tests ok"
+popd

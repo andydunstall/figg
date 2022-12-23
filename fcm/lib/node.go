@@ -92,6 +92,8 @@ func (n *Node) Enable() error {
 }
 
 func (n *Node) Disable() error {
+	<-time.After(time.Second)  // TODO(AD) tmp
+
 	if err := n.proxy.Close(); err != nil {
 		n.logger.Error("failed to disable node", zap.String("node-id", n.ID), zap.Error(err))
 	}
