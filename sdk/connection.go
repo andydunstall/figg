@@ -73,6 +73,13 @@ func (c *connection) Connect() error {
 func (c *connection) Publish(name string, data []byte, onACK func()) {
 	seqNum := c.pendingMessages.Add(name, data, onACK)
 
+	c.opts.Logger.Debug(
+		"publish",
+		zap.String("topic", name),
+		zap.Int("data-len", len(data)),
+		zap.Uint64("seqNum", seqNum),
+	)
+
 	// Ignore any errors as we'll resend on reconnect.
 	// Look at using net.Buffers when data large to avoid copying into
 	// message buffer.
@@ -80,6 +87,8 @@ func (c *connection) Publish(name string, data []byte, onACK func()) {
 }
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
+	c.opts.Logger.Debug("attach", zap.String("topic", name))
+
 	// Register for an ATTACHED response. Note if sending the ATTACH message
 	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
@@ -93,6 +102,12 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 }
 
 func (c *connection) AttachFromOffset(name string, offset uint64, onAttached func(), onMessage MessageCB) error {
+	c.opts.Logger.Debug(
+		"attach from offset",
+		zap.String("topic", name),
+		zap.Uint64("offset", offset),
+	)
+
 	// Register for an ATTACHED response. Note if sending the ATTACH message
 	// fails (eg due to disconnecting), we'll retry all registed attaching
 	// attachments.
@@ -106,6 +121,11 @@ func (c *connection) AttachFromOffset(name string, offset uint64, onAttached fun
 }
 
 func (c *connection) Detach(name string) {
+	c.opts.Logger.Debug(
+		"detach",
+		zap.String("topic", name),
+	)
+
 	// Only send DETACH if we're attached or attaching.
 	if c.attachments.AddDetaching(name) {
 		// Ignore any errors as we'll resend on reconnect.
@@ -208,6 +228,13 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 		offset += int(topicLen)
 		topicOffset, offset := utils.DecodeUint64(b, offset)
 
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.String("topic", topicName),
+			zap.Uint64("offset", topicOffset),
+		)
+
 		c.attachments.OnAttached(topicName, topicOffset)
 		return offset
 	case utils.TypeDetached:
@@ -215,10 +242,22 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 		topicName := string(b[offset : offset+int(topicLen)])
 		offset += int(topicLen)
 
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.String("topic", topicName),
+		)
+
 		c.attachments.OnDetached(topicName)
 		return offset
 	case utils.TypeACK:
 		seqNum, offset := utils.DecodeUint64(b, offset)
+
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.Uint64("seq-num", seqNum),
+		)
 
 		c.pendingMessages.Acknowledge(seqNum)
 		return offset
@@ -230,6 +269,14 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 		dataLen, offset := utils.DecodeUint32(b, offset)
 		data := b[offset : offset+int(dataLen)]
 		offset += int(dataLen)
+
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.String("topic", topicName),
+			zap.Uint64("offset", topicOffset),
+			zap.Int("data-len", len(data)),
+		)
 
 		c.attachments.OnMessage(topicName, Message{
 			Offset: topicOffset,
