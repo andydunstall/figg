@@ -70,13 +70,11 @@ func main() {
 		}()
 	}
 
-	doneCh := make(chan interface{})
-	go func() {
-		service.Run(config, logger, doneCh)
-	}()
+	figg := service.NewFigg(config, logger)
+	defer figg.Close()
+
+	go figg.Serve()
 
 	waitForInterrupt()
-	logger.Info("received interrupt")
-
-	close(doneCh)
+	logger.Info("received interrupt; exiting")
 }

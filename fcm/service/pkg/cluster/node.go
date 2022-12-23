@@ -20,7 +20,7 @@ type Node struct {
 
 	logger *zap.Logger
 
-	doneCh chan interface{}
+	figg *service.Figg
 }
 
 func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
@@ -45,11 +45,8 @@ func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
 		return nil, err
 	}
 
-	doneCh := make(chan interface{})
-
-	go func() {
-		service.Run(config, procLogger, doneCh)
-	}()
+	figg := service.NewFigg(config, procLogger)
+	go figg.Serve()
 
 	return &Node{
 		ID:        id,
@@ -57,7 +54,7 @@ func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
 		ProxyAddr: proxyAddr,
 		proxy:     proxy,
 		logger:    logger,
-		doneCh:    doneCh,
+		figg:      figg,
 	}, nil
 }
 
@@ -120,7 +117,7 @@ func (n *Node) Shutdown() error {
 	if err := n.proxy.Close(); err != nil {
 		return err
 	}
-	close(n.doneCh)
+	n.figg.Close()
 	return nil
 }
 
