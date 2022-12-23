@@ -35,6 +35,8 @@ type connection struct {
 	// reader reads messages from the connection. Must only be accessed from
 	// the read loop.
 	reader *utils.BufferedReader
+	// writer writes messages to the connection.
+	writer *utils.BufferedWriter
 }
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
@@ -48,6 +50,7 @@ func newConnection(onStateChange func(state ConnState), opts *Options) *connecti
 		mu:              sync.Mutex{},
 		conn:            nil,
 		reader:          nil,
+		writer:          nil,
 	}
 }
 
@@ -174,6 +177,8 @@ func (c *connection) Reconnect() {
 }
 
 func (c *connection) Close() error {
+	c.writer.Close()
+
 	// This will avoid log spam about errors when we shut down.
 	atomic.StoreInt32(&c.shutdown, 1)
 
@@ -185,14 +190,13 @@ func (c *connection) Close() error {
 func (c *connection) send(b []byte) error {
 	// Copy to avoid locking during IO.
 	c.mu.Lock()
-	conn := c.conn
+	writer := c.writer
 	c.mu.Unlock()
 
-	if conn == nil {
+	if writer == nil {
 		return ErrNotConnected
 	}
-	_, err := conn.Write(b)
-	return err
+	return writer.Write(b)
 }
 
 func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
@@ -289,6 +293,7 @@ func (c *connection) setNetConn(conn net.Conn) {
 
 	c.conn = conn
 	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
+	c.writer = utils.NewBufferedWriter(conn)
 }
 
 func (c *connection) unsetNetConn() {
@@ -297,4 +302,5 @@ func (c *connection) unsetNetConn() {
 
 	c.conn = nil
 	c.reader = nil
+	c.writer = nil
 }

@@ -8,53 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type fakeConn struct {
-	Incoming []byte
-	Outgoing [][]byte
-}
-
-func (c *fakeConn) Read(b []byte) (n int, err error) {
-	end := len(c.Incoming)
-	if end > len(b) {
-		end = len(b)
-	}
-
-	for i := 0; i < end; i++ {
-		b[i] = c.Incoming[i]
-	}
-	return end, nil
-}
-
-func (c *fakeConn) Write(b []byte) (n int, err error) {
-	if c.Outgoing == nil {
-		c.Outgoing = [][]byte{}
-	}
-
-	c.Outgoing = append(c.Outgoing, b)
-	return 0, nil
-}
-
-func (c *fakeConn) NextOutgoing() []byte {
-	if len(c.Outgoing) == 0 {
-		return nil
-	} else {
-		next := c.Outgoing[0]
-		c.Outgoing = c.Outgoing[1:]
-		return next
-	}
-}
-
-func (c *fakeConn) Close() error {
-	return nil
-}
-
 func TestConnection_Attach(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
+	defer conn.Close()
 
-	fakeConn.Incoming = utils.EncodeAttachMessage("foo")
+	fakeConn.Push(utils.EncodeAttachMessage("foo"))
 
 	assert.Nil(t, conn.Recv())
-	assert.Equal(t, fakeConn.NextOutgoing(), utils.EncodeAttachedMessage("foo", 0))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachedMessage("foo", 0))
 }
 
 // TODO(AD) attach from offset
@@ -63,12 +24,13 @@ func TestConnection_Attach(t *testing.T) {
 
 func TestConnection_Publish(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
+	defer conn.Close()
 
 	// Publish a message and expect to be ACK'ed
 	for seqNum := uint64(0); seqNum != 10; seqNum++ {
-		fakeConn.Incoming = utils.EncodePublishMessage("foo", seqNum, []byte("bar"))
+		fakeConn.Push(utils.EncodePublishMessage("foo", seqNum, []byte("bar")))
 		assert.Nil(t, conn.Recv())
-		assert.Equal(t, fakeConn.NextOutgoing(), utils.EncodeACKMessage(seqNum))
+		assert.Equal(t, fakeConn.NextWritten(), utils.EncodeACKMessage(seqNum))
 	}
 }
 
@@ -80,22 +42,23 @@ func TestConnection_PublishSendMessagesToAttached(t *testing.T) {
 
 	// Add a connection subscribing to the topic.
 	subConn, subFakeConn := newFakeConnectionWithBroker(broker)
-	subFakeConn.Incoming = utils.EncodeAttachMessage("foo")
+	defer subConn.Close()
+	subFakeConn.Push(utils.EncodeAttachMessage("foo"))
 	assert.Nil(t, subConn.Recv())
-	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeAttachedMessage("foo", 0))
+	assert.Equal(t, subFakeConn.NextWritten(), utils.EncodeAttachedMessage("foo", 0))
 
 	// Add another connection and publish to the topic.
 	pubConn, pubFakeConn := newFakeConnectionWithBroker(broker)
-	pubFakeConn.Incoming = utils.EncodePublishMessage("foo", 0, []byte("bar"))
+	defer pubConn.Close()
+	pubFakeConn.Push(utils.EncodePublishMessage("foo", 0, []byte("bar")))
 	assert.Nil(t, pubConn.Recv())
 
 	// Check the subscriber connection receives the message.
-	assert.Nil(t, subConn.Recv())
-	assert.Equal(t, subFakeConn.NextOutgoing(), utils.EncodeDataMessage("foo", 7, []byte("bar")))
+	assert.Equal(t, subFakeConn.NextWritten(), utils.EncodeDataMessage("foo", 7, []byte("bar")))
 }
 
-func newFakeConnection() (*Connection, *fakeConn) {
-	fakeConn := &fakeConn{}
+func newFakeConnection() (*Connection, *utils.FakeConn) {
+	fakeConn := utils.NewFakeConn()
 	conn := NewConnection(fakeConn, topic.NewBroker(topic.Options{
 		Persisted:   false,
 		SegmentSize: 1000,
@@ -103,8 +66,8 @@ func newFakeConnection() (*Connection, *fakeConn) {
 	return conn, fakeConn
 }
 
-func newFakeConnectionWithBroker(broker *topic.Broker) (*Connection, *fakeConn) {
-	fakeConn := &fakeConn{}
+func newFakeConnectionWithBroker(broker *topic.Broker) (*Connection, *utils.FakeConn) {
+	fakeConn := utils.NewFakeConn()
 	conn := NewConnection(fakeConn, broker)
 	return conn, fakeConn
 }
