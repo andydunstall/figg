@@ -35,7 +35,9 @@ func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
 	}
 
 	config := config.Config{
-		Addr: listenAddr,
+		Addr:                 listenAddr,
+		CommitLogDir:         "./data",
+		CommitLogSegmentSize: 4194304,
 	}
 
 	procLogger, err := newLogger(id)
