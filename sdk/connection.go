@@ -27,12 +27,13 @@ type connection struct {
 	// done is a channel used to interrupt reconnect backoff.
 	done chan interface{}
 
-	// mu is a mutex protecting the below fields (only locked if the fields
-	// are swapped out, should not be held during IO).
+	// mu is a mutex protecting the below fields. Note should not be held during
+	// IO, so if performing IO take a copy then unlock.
 	mu sync.Mutex
 
 	conn net.Conn
-	// reader reads messages from the connection.
+	// reader reads messages from the connection. Must only be accessed from
+	// the read loop.
 	reader *utils.BufferedReader
 }
 
@@ -72,7 +73,7 @@ func (c *connection) Publish(name string, data []byte, onACK func()) {
 	// Ignore any errors as we'll resend on reconnect.
 	// Look at using net.Buffers when data large to avoid copying into
 	// message buffer.
-	c.conn.Write(utils.EncodePublishMessage(name, seqNum, data))
+	c.send(utils.EncodePublishMessage(name, seqNum, data))
 }
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
@@ -84,7 +85,7 @@ func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB)
 	}
 
 	// Ignore any errors as we'll resend on reconnect.
-	c.conn.Write(utils.EncodeAttachMessage(name))
+	c.send(utils.EncodeAttachMessage(name))
 	return nil
 }
 
@@ -97,7 +98,7 @@ func (c *connection) AttachFromOffset(name string, offset uint64, onAttached fun
 	}
 
 	// Ignore any errors as we'll resend on reconnect.
-	c.conn.Write(utils.EncodeAttachFromOffsetMessage(name, offset))
+	c.send(utils.EncodeAttachFromOffsetMessage(name, offset))
 	return nil
 }
 
@@ -105,7 +106,7 @@ func (c *connection) Detach(name string) {
 	// Only send DETACH if we're attached or attaching.
 	if c.attachments.AddDetaching(name) {
 		// Ignore any errors as we'll resend on reconnect.
-		c.conn.Write(utils.EncodeDetachMessage(name))
+		c.send(utils.EncodeDetachMessage(name))
 	}
 }
 
@@ -181,6 +182,19 @@ func (c *connection) Close() error {
 	return c.onDisconnect()
 }
 
+func (c *connection) send(b []byte) error {
+	// Copy to avoid locking during IO.
+	c.mu.Lock()
+	conn := c.conn
+	c.mu.Unlock()
+
+	if conn == nil {
+		return ErrNotConnected
+	}
+	_, err := conn.Write(b)
+	return err
+}
+
 func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 	offset := 0
 	switch messageType {
@@ -224,11 +238,7 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 }
 
 func (c *connection) onConnect(conn net.Conn) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.conn = conn
-	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
+	c.setNetConn(conn)
 
 	if c.onStateChange != nil {
 		c.onStateChange(CONNECTED)
@@ -236,24 +246,24 @@ func (c *connection) onConnect(conn net.Conn) {
 
 	for _, att := range c.attachments.Attaching() {
 		if att.FromOffset {
-			c.conn.Write(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
+			c.send(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
 		} else {
-			c.conn.Write(utils.EncodeAttachMessage(att.Name))
+			c.send(utils.EncodeAttachMessage(att.Name))
 		}
 	}
 
 	for _, att := range c.attachments.Attached() {
-		c.conn.Write(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
+		c.send(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
 	}
 
 	for _, topic := range c.attachments.Detaching() {
-		c.conn.Write(utils.EncodeDetachMessage(topic))
+		c.send(utils.EncodeDetachMessage(topic))
 	}
 
 	for _, m := range c.pendingMessages.Messages() {
 		// Look at using net.Buffers when data large to avoid copying into
 		// message buffer.
-		c.conn.Write(utils.EncodePublishMessage(m.Topic, m.SeqNum, m.Data))
+		c.send(utils.EncodePublishMessage(m.Topic, m.SeqNum, m.Data))
 	}
 }
 
@@ -264,15 +274,27 @@ func (c *connection) onDisconnect() error {
 
 	err := c.conn.Close()
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.conn = nil
-	c.reader = nil
+	c.unsetNetConn()
 
 	if c.onStateChange != nil {
 		c.onStateChange(DISCONNECTED)
 	}
 
 	return err
+}
+
+func (c *connection) setNetConn(conn net.Conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.conn = conn
+	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
+}
+
+func (c *connection) unsetNetConn() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.conn = nil
+	c.reader = nil
 }
