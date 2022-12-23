@@ -15,6 +15,11 @@ pushd cli
 	echo "cli ok"
 popd
 
+pushd fcm/lib
+	go build ./... || exit 1
+	echo "fcm/lib ok"
+popd
+
 pushd fcm/service
 	go build ./... || exit 1
 	echo "fcm/service ok"

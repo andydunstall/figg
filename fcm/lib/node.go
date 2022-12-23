@@ -1,4 +1,4 @@
-package cluster
+package fcm
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/andydunstall/figg/fcm/service/pkg/proxy"
 	"github.com/andydunstall/figg/service"
 	"github.com/andydunstall/figg/service/pkg/config"
 	"github.com/google/uuid"
@@ -17,7 +16,7 @@ type Node struct {
 	ID        string
 	Addr      string
 	ProxyAddr string
-	proxy     *proxy.Proxy
+	proxy     *Proxy
 
 	logger *zap.Logger
 
@@ -41,7 +40,7 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 	listenAddr := listener.Addr().String()
 	proxyAddr := proxyListener.Addr().String()
 
-	proxy, err := proxy.NewProxy(proxyListener, listenAddr)
+	proxy, err := NewProxy(proxyListener, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,7 @@ func (n *Node) Enable() error {
 		return err
 	}
 
-	proxy, err := proxy.NewProxy(proxyListener, n.Addr)
+	proxy, err := NewProxy(proxyListener, n.Addr)
 	if err != nil {
 		n.logger.Error("failed to enable node", zap.String("node-id", n.ID), zap.Error(err))
 		return err

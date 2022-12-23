@@ -3,12 +3,13 @@ package cluster
 import (
 	"sync"
 
+	fcm "github.com/andydunstall/figg/fcm/lib"
 	"go.uber.org/zap"
 )
 
 type ClusterManager struct {
 	clusters map[string]*Cluster
-	nodes    map[string]*Node
+	nodes    map[string]*fcm.Node
 
 	mu sync.Mutex
 
@@ -18,7 +19,7 @@ type ClusterManager struct {
 func NewClusterManager(logger *zap.Logger) *ClusterManager {
 	return &ClusterManager{
 		clusters: make(map[string]*Cluster),
-		nodes:    make(map[string]*Node),
+		nodes:    make(map[string]*fcm.Node),
 		mu:       sync.Mutex{},
 		logger:   logger,
 	}
@@ -32,7 +33,7 @@ func (m *ClusterManager) Get(id string) (*Cluster, bool) {
 	return cluster, ok
 }
 
-func (m *ClusterManager) GetNode(id string) (*Node, bool) {
+func (m *ClusterManager) GetNode(id string) (*fcm.Node, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
