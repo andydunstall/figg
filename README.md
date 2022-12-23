@@ -11,7 +11,7 @@ can start subscribing from an old message.
 
 ## Components
 * [`service/`](./service): Backend Figg service,
-* [`sdk/`](./sdk): Go SDK client library (being replaced by `sdkv2/`),
+* [`sdk/`](./sdk): Go SDK client library,
 * [`cli/`](./cli): Figg CLI,
 * [`docs/`](./docs): Documentation on usage and architecture,
 * [`tests/`](./tests): System tests,
