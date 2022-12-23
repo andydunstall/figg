@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -23,13 +24,24 @@ type Node struct {
 	figg *service.Figg
 }
 
-func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
+func NewNode(logger *zap.Logger) (*Node, error) {
 	id := uuid.New().String()[:7]
 
-	listenAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
-	proxyAddr := fmt.Sprintf("127.0.0.1:%d", portAllocator.Take())
+	// Create figg and proxy listeners, leaving the kernel to assign a free
+	// port.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	proxyListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
 
-	proxy, err := proxy.NewProxy(proxyAddr, listenAddr)
+	listenAddr := listener.Addr().String()
+	proxyAddr := proxyListener.Addr().String()
+
+	proxy, err := proxy.NewProxy(proxyListener, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +58,7 @@ func NewNode(portAllocator *PortAllocator, logger *zap.Logger) (*Node, error) {
 	}
 
 	figg := service.NewFigg(config, procLogger)
-	go figg.Serve()
+	go figg.ServeWithListener(listener)
 
 	return &Node{
 		ID:        id,
@@ -64,7 +76,12 @@ func (n *Node) Enable() error {
 		return nil
 	}
 
-	proxy, err := proxy.NewProxy(n.ProxyAddr, n.Addr)
+	proxyListener, err := net.Listen("tcp", n.ProxyAddr)
+	if err != nil {
+		return err
+	}
+
+	proxy, err := proxy.NewProxy(proxyListener, n.Addr)
 	if err != nil {
 		n.logger.Error("failed to enable node", zap.String("node-id", n.ID), zap.Error(err))
 		return err

@@ -8,22 +8,20 @@ import (
 )
 
 type Cluster struct {
-	ID            string
-	Nodes         map[string]*Node
-	portAllocator *PortAllocator
+	ID    string
+	Nodes map[string]*Node
 
 	logger *zap.Logger
 
 	mu sync.Mutex
 }
 
-func NewCluster(portAllocator *PortAllocator, logger *zap.Logger) (*Cluster, error) {
+func NewCluster(logger *zap.Logger) (*Cluster, error) {
 	cluster := &Cluster{
-		ID:            uuid.New().String()[:7],
-		Nodes:         make(map[string]*Node),
-		portAllocator: portAllocator,
-		logger:        logger,
-		mu:            sync.Mutex{},
+		ID:     uuid.New().String()[:7],
+		Nodes:  make(map[string]*Node),
+		logger: logger,
+		mu:     sync.Mutex{},
 	}
 	_, err := cluster.AddNode()
 	if err != nil {
@@ -36,7 +34,7 @@ func (c *Cluster) AddNode() (*Node, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	node, err := NewNode(c.portAllocator, c.logger)
+	node, err := NewNode(c.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -10,12 +10,7 @@ type Proxy struct {
 	conns      map[*Connection]interface{}
 }
 
-func NewProxy(listenAddr string, targetAddr string) (*Proxy, error) {
-	listener, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return nil, err
-	}
-
+func NewProxy(listener net.Listener, targetAddr string) (*Proxy, error) {
 	p := &Proxy{
 		targetAddr: targetAddr,
 		listener:   listener,
