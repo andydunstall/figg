@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io"
 
 	"github.com/andydunstall/figg/service/pkg/topic"
 	"github.com/andydunstall/figg/utils"
@@ -28,15 +27,9 @@ func (c *ConnectionAttachment) Send(ctx context.Context, m topic.Message) {
 	c.conn.writer.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
 }
 
-type NetworkConnection interface {
-	io.Reader
-	io.Writer
-	io.Closer
-}
-
 // Connection represents an application level connection to the client.
 type Connection struct {
-	conn NetworkConnection
+	conn utils.NetworkConnection
 	// reader reads messages from the connection.
 	reader *utils.BufferedReader
 	// writer writes messages to the connection.
@@ -46,7 +39,7 @@ type Connection struct {
 	subscriptions *topic.Subscriptions
 }
 
-func NewConnection(conn NetworkConnection, broker *topic.Broker) *Connection {
+func NewConnection(conn utils.NetworkConnection, broker *topic.Broker) *Connection {
 	c := &Connection{
 		conn:   conn,
 		reader: utils.NewBufferedReader(conn, readBufferLen),
