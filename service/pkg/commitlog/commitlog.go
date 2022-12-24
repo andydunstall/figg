@@ -33,7 +33,7 @@ func NewCommitLog(persisted bool, segmentSize uint64, dir string) *CommitLog {
 
 // Append adds new data to the commit log. This will be appended to the most
 // recent segment, which is in memory so this should be fast.
-func (c *CommitLog) Append(b []byte) error {
+func (c *CommitLog) Append(b []byte) {
 	segment := c.segments.Last()
 	if segment == nil {
 		segment = NewInMemorySegment(c.segmentSize, 0)
@@ -50,8 +50,6 @@ func (c *CommitLog) Append(b []byte) error {
 		}()
 		c.newSegment()
 	}
-
-	return nil
 }
 
 // Lookup returns the entry at the given offset in the commit log. If not found

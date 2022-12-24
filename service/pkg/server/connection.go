@@ -98,9 +98,7 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 		offset += int(dataLen)
 
 		topic := c.broker.GetTopic(topicName)
-		if err := topic.Publish(data); err != nil {
-			// TODO(AD)
-		}
+		topic.Publish(data)
 
 		c.writer.Write(utils.EncodeACKMessage(seqNum))
 	}
