@@ -119,7 +119,3 @@ func TestSubscribe_ResumeAfterDisconnect(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("message-%d", i), string(m.Data))
 	}
 }
-
-// TODO(AD) Test TestSubscribe_ResumeAfterDisconnect without having received
-// any messages (requiring ATTACHED to include an offset). Test a non-zero
-// offset.
