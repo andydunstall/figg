@@ -6,8 +6,9 @@ import (
 	"os/signal"
 	"runtime/pprof"
 
+	adminService "github.com/andydunstall/figg/server/pkg/admin/service"
 	"github.com/andydunstall/figg/server/pkg/config"
-	"github.com/andydunstall/figg/server/pkg/messaging/service"
+	messagingService "github.com/andydunstall/figg/server/pkg/messaging/service"
 	"go.uber.org/zap"
 )
 
@@ -70,12 +71,19 @@ func main() {
 		}()
 	}
 
-	messagingService := service.NewMessagingService(config, logger)
+	messagingService := messagingService.NewMessagingService(config, logger)
 	_, err = messagingService.Serve()
 	if err != nil {
 		logger.Fatal("failed to start messaging service", zap.Error(err))
 	}
 	defer messagingService.Close()
+
+	adminService := adminService.NewAdminService(config)
+	_, err = adminService.Serve()
+	if err != nil {
+		logger.Fatal("failed to start admin service", zap.Error(err))
+	}
+	defer adminService.Close()
 
 	waitForInterrupt()
 	logger.Info("received interrupt; exiting")
