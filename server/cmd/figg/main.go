@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"runtime/pprof"
 
-	"github.com/andydunstall/figg/server"
 	"github.com/andydunstall/figg/server/pkg/config"
+	"github.com/andydunstall/figg/server/pkg/service/messaging"
 	"go.uber.org/zap"
 )
 
@@ -70,10 +70,12 @@ func main() {
 		}()
 	}
 
-	figg := server.NewFigg(config, logger)
-	defer figg.Close()
-
-	go figg.Serve()
+	messagingService := messaging.NewMessagingService(config, logger)
+	_, err = messagingService.Serve()
+	if err != nil {
+		logger.Fatal("failed to start messaging service", zap.Error(err))
+	}
+	defer messagingService.Close()
 
 	waitForInterrupt()
 	logger.Info("received interrupt; exiting")

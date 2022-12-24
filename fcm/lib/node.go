@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/andydunstall/figg/server"
+	"github.com/andydunstall/figg/server/pkg/service/messaging"
 	"github.com/andydunstall/figg/server/pkg/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ type Node struct {
 
 	logger *zap.Logger
 
-	figg *server.Figg
+	messagingService *messaging.MessagingService
 }
 
 func NewNode(logger *zap.Logger) (*Node, error) {
@@ -28,25 +28,15 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 
 	// Create figg and proxy listeners, leaving the kernel to assign a free
 	// port.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, err
-	}
 	proxyListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
 
-	listenAddr := listener.Addr().String()
 	proxyAddr := proxyListener.Addr().String()
 
-	proxy, err := NewProxy(proxyListener, listenAddr)
-	if err != nil {
-		return nil, err
-	}
-
 	config := config.Config{
-		Addr:                 listenAddr,
+		Addr:                 "127.0.0.1:0",
 		CommitLogDir:         "./data",
 		CommitLogSegmentSize: 4194304,
 	}
@@ -56,8 +46,16 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 		return nil, err
 	}
 
-	figg := server.NewFigg(config, procLogger)
-	go figg.ServeWithListener(listener)
+	messagingService := messaging.NewMessagingService(config, procLogger)
+	listenAddr, err := messagingService.Serve()
+	if err != nil {
+		return nil, err
+	}
+
+	proxy, err := NewProxy(proxyListener, listenAddr)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Node{
 		ID:        id,
@@ -65,7 +63,7 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 		ProxyAddr: proxyAddr,
 		proxy:     proxy,
 		logger:    logger,
-		figg:      figg,
+		messagingService:      messagingService,
 	}, nil
 }
 
@@ -135,7 +133,7 @@ func (n *Node) Shutdown() error {
 	if err := n.proxy.Close(); err != nil {
 		return err
 	}
-	n.figg.Close()
+	n.messagingService.Close()
 	return nil
 }
 
