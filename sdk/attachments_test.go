@@ -155,29 +155,29 @@ func TestAttachments_OnDetached(t *testing.T) {
 }
 
 func TestAttachments_OnMessage(t *testing.T) {
-	messages := []Message{}
+	messages := []*Message{}
 	attachments := newAttachments()
 
 	// Add attached topic.
-	attachments.AddAttaching("foo", func() {}, func(m Message) {
+	attachments.AddAttaching("foo", func() {}, func(m *Message) {
 		messages = append(messages, m)
 	})
 	attachments.OnAttached("foo", 10)
 
-	attachments.OnMessage("foo", Message{
+	attachments.OnMessage("foo", &Message{
 		Data:   []byte("A"),
 		Offset: 5,
 	})
-	attachments.OnMessage("foo", Message{
+	attachments.OnMessage("foo", &Message{
 		Data:   []byte("B"),
 		Offset: 10,
 	})
-	attachments.OnMessage("foo", Message{
+	attachments.OnMessage("foo", &Message{
 		Data:   []byte("C"),
 		Offset: 15,
 	})
 
-	assert.Equal(t, []Message{
+	assert.Equal(t, []*Message{
 		{
 			Data:   []byte("A"),
 			Offset: 5,

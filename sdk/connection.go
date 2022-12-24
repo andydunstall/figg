@@ -267,7 +267,8 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 		offset += int(topicLen)
 		topicOffset, offset := utils.DecodeUint64(b, offset)
 		dataLen, offset := utils.DecodeUint32(b, offset)
-		data := b[offset : offset+int(dataLen)]
+		data := make([]byte, dataLen)
+		copy(data, b[offset:offset+int(dataLen)])
 		offset += int(dataLen)
 
 		c.opts.Logger.Debug(
@@ -278,7 +279,7 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 			zap.Int("data-len", len(data)),
 		)
 
-		c.attachments.OnMessage(topicName, Message{
+		c.attachments.OnMessage(topicName, &Message{
 			Offset: topicOffset,
 			Data:   data,
 		})

@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	fcm "github.com/andydunstall/figg/fcm/lib"
 	figg "github.com/andydunstall/figg/sdk"
@@ -14,16 +15,17 @@ func TestSubscribe_SubscribeToTopics(t *testing.T) {
 	assert.Nil(t, err)
 	defer node.Shutdown()
 
-	subClient, err := figg.Connect(node.ProxyAddr, figg.WithLogger(setupLogger()))
+	subClient, err := figg.Connect(node.Addr, figg.WithLogger(setupLogger()))
 	assert.Nil(t, err)
 	defer subClient.Close()
 
-	pubClient, err := figg.Connect(node.ProxyAddr, figg.WithLogger(setupLogger()))
+	pubClient, err := figg.Connect(node.Addr, figg.WithLogger(setupLogger()))
 	assert.Nil(t, err)
 	defer pubClient.Close()
 
-	messagesCh := make(chan figg.Message)
-	assert.Nil(t, subClient.Subscribe("foo", func(m figg.Message) {
+	// Add a buffer so the subscribe callback doesn't block.
+	messagesCh := make(chan *figg.Message, 10)
+	assert.Nil(t, subClient.Subscribe("foo", func(m *figg.Message) {
 		messagesCh <- m
 	}))
 
@@ -42,7 +44,7 @@ func TestSubscribe_SubscribeFromOffset(t *testing.T) {
 	assert.Nil(t, err)
 	defer node.Shutdown()
 
-	pubClient, err := figg.Connect(node.ProxyAddr, figg.WithLogger(setupLogger()))
+	pubClient, err := figg.Connect(node.Addr, figg.WithLogger(setupLogger()))
 	assert.Nil(t, err)
 	defer pubClient.Close()
 
@@ -51,13 +53,14 @@ func TestSubscribe_SubscribeFromOffset(t *testing.T) {
 		pubClient.Publish("foo", []byte(fmt.Sprintf("message-%d", i)))
 	}
 
-	subClient, err := figg.Connect(node.ProxyAddr, figg.WithLogger(setupLogger()))
+	subClient, err := figg.Connect(node.Addr, figg.WithLogger(setupLogger()))
 	assert.Nil(t, err)
 	defer subClient.Close()
 
+	// Add a buffer so the subscribe callback doesn't block.
+	messagesCh := make(chan *figg.Message, 10)
 	// Subscribe from offset 0 to get all messages published on the topic.
-	messagesCh := make(chan figg.Message)
-	assert.Nil(t, subClient.Subscribe("foo", func(m figg.Message) {
+	assert.Nil(t, subClient.Subscribe("foo", func(m *figg.Message) {
 		messagesCh <- m
 	}, figg.WithOffset(0)))
 

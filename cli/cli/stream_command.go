@@ -58,7 +58,7 @@ func (c *StreamCommand) run() error {
 	}
 
 	last := 0
-	subscriber.Subscribe("stream-topic", func(m figg.Message) {
+	subscriber.Subscribe("stream-topic", func(m *figg.Message) {
 		n, _ := strconv.Atoi(string(m.Data))
 		if last != 0 && n != last+1 {
 			panic("out of order messages")

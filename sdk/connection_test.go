@@ -15,7 +15,7 @@ func TestConnection_Attach(t *testing.T) {
 	attached := false
 	conn.Attach("foo", func() {
 		attached = true
-	}, func(m Message) {})
+	}, func(m *Message) {})
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachMessage("foo"))
 	fakeConn.Push(utils.EncodeAttachedMessage("foo", 10))
@@ -31,7 +31,7 @@ func TestConnection_AttachFromOffset(t *testing.T) {
 	attached := false
 	conn.AttachFromOffset("foo", 0xff, func() {
 		attached = true
-	}, func(m Message) {})
+	}, func(m *Message) {})
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
 	fakeConn.Push(utils.EncodeAttachedMessage("foo", 0xff))
@@ -49,7 +49,7 @@ func TestConnection_ReattachPendingAttachmentOnReconnect(t *testing.T) {
 	attached := false
 	conn.Attach("foo", func() {
 		attached = true
-	}, func(m Message) {})
+	}, func(m *Message) {})
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachMessage("foo"))
 
@@ -71,7 +71,7 @@ func TestConnection_ReattachPendingAttachmentFromOffsetOnReconnect(t *testing.T)
 	attached := false
 	conn.AttachFromOffset("foo", 0xff, func() {
 		attached = true
-	}, func(m Message) {})
+	}, func(m *Message) {})
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachFromOffsetMessage("foo", 0xff))
 
@@ -93,7 +93,7 @@ func TestConnection_ReattachActiveAttachmentOnReconnect(t *testing.T) {
 	attached := false
 	conn.Attach("foo", func() {
 		attached = true
-	}, func(m Message) {})
+	}, func(m *Message) {})
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachMessage("foo"))
 
@@ -117,7 +117,7 @@ func TestConnection_Detach(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
 	defer conn.Close()
 
-	conn.Attach("foo", func() {}, func(m Message) {})
+	conn.Attach("foo", func() {}, func(m *Message) {})
 	conn.Detach("foo")
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachMessage("foo"))
@@ -132,7 +132,7 @@ func TestConnection_ResendDetachingOnReconnect(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
 	defer conn.Close()
 
-	conn.Attach("foo", func() {}, func(m Message) {})
+	conn.Attach("foo", func() {}, func(m *Message) {})
 	conn.Detach("foo")
 
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachMessage("foo"))
@@ -201,16 +201,16 @@ func TestConnection_OnMessage(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
 	defer conn.Close()
 
-	messages := []Message{}
+	messages := []*Message{}
 
 	// Add attachment.
-	conn.Attach("foo", func() {}, func(m Message) {
+	conn.Attach("foo", func() {}, func(m *Message) {
 		data := make([]byte, 0, len(m.Data))
 		for _, b := range m.Data {
 			data = append(data, b)
 		}
 
-		messages = append(messages, Message{
+		messages = append(messages, &Message{
 			Data:   data,
 			Offset: m.Offset,
 		})
@@ -229,7 +229,7 @@ func TestConnection_OnMessage(t *testing.T) {
 	fakeConn.Push(utils.EncodeDataMessage("foo", 0x115, []byte("D")))
 	assert.Nil(t, conn.Recv())
 
-	assert.Equal(t, []Message{
+	assert.Equal(t, []*Message{
 		{
 			Data:   []byte("A"),
 			Offset: 0x105,
