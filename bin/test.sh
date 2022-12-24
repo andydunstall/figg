@@ -1,8 +1,8 @@
 #!/bin/bash
 
-pushd service
+pushd server
 	go test ./... $@ || exit 1
-	echo "service ok"
+	echo "server ok"
 popd
 
 pushd sdk

@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/andydunstall/figg/service/pkg/commitlog"
+	"github.com/andydunstall/figg/server/pkg/commitlog"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )

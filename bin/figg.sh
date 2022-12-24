@@ -1,5 +1,5 @@
 #!/bin/bash
 
-pushd service
+pushd server
 	go run cmd/figg/main.go $@
 popd

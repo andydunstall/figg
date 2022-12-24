@@ -1,8 +1,8 @@
 #!/bin/bash
 
-pushd service
+pushd server
 	go fmt ./... || exit 1
-	echo "service ok"
+	echo "server ok"
 popd
 
 pushd sdk
@@ -20,9 +20,9 @@ pushd cli
 	echo "cli ok"
 popd
 
-pushd fcm/service
+pushd fcm/server
 	go fmt ./... || exit 1
-	echo "fcm/service ok"
+	echo "fcm/server ok"
 popd
 
 pushd fcm/sdk

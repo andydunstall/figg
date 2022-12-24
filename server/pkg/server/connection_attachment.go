@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/server/pkg/topic"
 )
 
 // ConnectionAttachment implements a topic attachment to send messages to the

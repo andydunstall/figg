@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"runtime/pprof"
 
-	"github.com/andydunstall/figg/service"
-	"github.com/andydunstall/figg/service/pkg/config"
+	"github.com/andydunstall/figg/server"
+	"github.com/andydunstall/figg/server/pkg/config"
 	"go.uber.org/zap"
 )
 
@@ -70,7 +70,7 @@ func main() {
 		}()
 	}
 
-	figg := service.NewFigg(config, logger)
+	figg := server.NewFigg(config, logger)
 	defer figg.Close()
 
 	go figg.Serve()

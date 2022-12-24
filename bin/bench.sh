@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pushd service
+pushd server
 	go test ./... -bench=. -benchtime=5s -run=$@ || exit 1
-	echo "service ok"
+	echo "server ok"
 popd

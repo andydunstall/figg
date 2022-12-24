@@ -10,7 +10,7 @@ reconnect and resume any missed messages,
 can start subscribing from an old message.
 
 ## Components
-* [`service/`](./service): Backend Figg service,
+* [`server/`](./server): Backend Figg server,
 * [`sdk/`](./sdk): Go SDK client library,
 * [`cli/`](./cli): Figg CLI,
 * [`docs/`](./docs): Documentation on usage and architecture,
@@ -19,8 +19,8 @@ can start subscribing from an old message.
 
 ## Usage
 ### Service
-The [`Figg service`](./service) can be started with `./bin/figg.sh`, or compile
-the package in [`./service`](./service) with `go build ./...`. For now all
+The [`Figg server`](./server) can be started with `./bin/figg.sh`, or compile
+the package in [`./server`](./server) with `go build ./...`. For now all
 configuration is passed via the command line.
 
 ### Client
@@ -45,8 +45,8 @@ client.Publish("foo", []byte("bar"))
 ```
 
 ## Benchmarking
-The Figg service can be benchmarked using `./bin/cli.sh bench` which runs
-benchmarks for multiple scenarios. The service can be configured to output
+The Figg server can be benchmarked using `./bin/cli.sh bench` which runs
+benchmarks for multiple scenarios. The server can be configured to output
 CPU and memory profiles using `--cpuprofile` and `--memoryprofile` respectively
 which can be analysed using `go tool pprof`.
 
@@ -54,15 +54,15 @@ Some performance critical components have benchmark tests that can be run with
 `go test` or `./bin/bench.sh`.
 
 ## Testing
-The service and SDK aims for high unit test coverage where possible which are
-included in the [`service/`](./service) and [`sdk`](./sdk) packages alongside
+The server and SDK aims for high unit test coverage where possible which are
+included in the [`server/`](./server) and [`sdk`](./sdk) packages alongside
 the code itself.
 
 Though some end-to-end system tests are needed to:
 * Check components are properly integrated,
 * Inject chaos into a cluster to check for issues overlooked in the design.
 These tests are in [`tests/`](./tests). [`FCM`](./fcm) is used to create Figg
-clusters locally and inject chaos, which is used both for testing the service
+clusters locally and inject chaos, which is used both for testing the server
 and the SDK.
 
 ### Manual Testing

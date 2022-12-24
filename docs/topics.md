@@ -5,14 +5,14 @@ than a client subscriber.
 
 Topics store messages for a configurable on disk in a commit log.
 
-See [`service/pkg/topic`](../service/pkg/topic).
+See [`server/pkg/topic`](../server/pkg/topic).
 
 ## Commit Log
 The commit log is split into roughly 4MB segments. Each segment is assigned an
 offset in the commit log. The most recent segment is kept in memory so publishes
 are fast, then once its full it is persisted to disk in the background.
 
-See [`service/pkg/commitlog`](../service/pkg/commitlog).
+See [`server/pkg/commitlog`](../server/pkg/commitlog).
 
 #### `Append(message)`
 1. Looks up the most recent segment, which will always stored in-memory as a
