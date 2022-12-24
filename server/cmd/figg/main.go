@@ -7,7 +7,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/andydunstall/figg/server/pkg/config"
-	"github.com/andydunstall/figg/server/pkg/service/messaging"
+	"github.com/andydunstall/figg/server/pkg/messaging/service"
 	"go.uber.org/zap"
 )
 
@@ -70,7 +70,7 @@ func main() {
 		}()
 	}
 
-	messagingService := messaging.NewMessagingService(config, logger)
+	messagingService := service.NewMessagingService(config, logger)
 	_, err = messagingService.Serve()
 	if err != nil {
 		logger.Fatal("failed to start messaging service", zap.Error(err))

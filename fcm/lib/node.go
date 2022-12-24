@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/andydunstall/figg/server/pkg/service/messaging"
+	"github.com/andydunstall/figg/server/pkg/messaging/service"
 	"github.com/andydunstall/figg/server/pkg/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ type Node struct {
 
 	logger *zap.Logger
 
-	messagingService *messaging.MessagingService
+	messagingService *service.MessagingService
 }
 
 func NewNode(logger *zap.Logger) (*Node, error) {
@@ -46,7 +46,7 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 		return nil, err
 	}
 
-	messagingService := messaging.NewMessagingService(config, procLogger)
+	messagingService := service.NewMessagingService(config, procLogger)
 	listenAddr, err := messagingService.Serve()
 	if err != nil {
 		return nil, err
