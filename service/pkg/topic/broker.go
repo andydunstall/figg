@@ -23,17 +23,14 @@ func NewBroker(options Options) *Broker {
 
 // GetTopic returns the topic with the given name. If the topic is not active it
 // is activated and returned.
-func (b *Broker) GetTopic(name string) (*Topic, error) {
+func (b *Broker) GetTopic(name string) *Topic {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if topic, ok := b.topics[name]; ok {
-		return topic, nil
+		return topic
 	}
-	topic, err := NewTopic(name, b.options)
-	if err != nil {
-		return nil, err
-	}
+	topic := NewTopic(name, b.options)
 	b.topics[name] = topic
-	return topic, nil
+	return topic
 }

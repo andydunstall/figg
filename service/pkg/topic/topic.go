@@ -28,7 +28,7 @@ type Topic struct {
 	offset      uint64
 }
 
-func NewTopic(name string, options Options) (*Topic, error) {
+func NewTopic(name string, options Options) *Topic {
 	log := commitlog.NewCommitLog(
 		options.Persisted,
 		options.SegmentSize,
@@ -40,7 +40,7 @@ func NewTopic(name string, options Options) (*Topic, error) {
 		mu:          sync.Mutex{},
 		subscribers: []*Subscription{},
 		offset:      0,
-	}, nil
+	}
 }
 
 func (t *Topic) Name() string {
