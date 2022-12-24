@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-
 	"github.com/andydunstall/figg/service/pkg/topic"
 	"github.com/andydunstall/figg/utils"
 )
@@ -10,22 +8,6 @@ import (
 const (
 	readBufferLen = 1 << 15 // 32 KB
 )
-
-// ConnectionAttachment implements a topic attachment to send messages to the
-// connection.
-type ConnectionAttachment struct {
-	conn *Connection
-}
-
-func NewConnectionAttachment(conn *Connection) topic.Attachment {
-	return &ConnectionAttachment{
-		conn: conn,
-	}
-}
-
-func (c *ConnectionAttachment) Send(ctx context.Context, m topic.Message) {
-	c.conn.writer.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
-}
 
 // Connection represents an application level connection to the client.
 type Connection struct {
@@ -59,6 +41,10 @@ func (c *Connection) Recv() error {
 
 	c.onMessage(messageType, payload)
 	return nil
+}
+
+func (c *Connection) SendDataMessage(m topic.Message) {
+	c.writer.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
 }
 
 func (c *Connection) Close() error {
