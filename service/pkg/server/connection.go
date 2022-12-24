@@ -105,15 +105,11 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 }
 
 func (c *Connection) onAttach(name string) {
-	c.subscriptions.AddSubscription(name)
-
-	// TODO(AD) include offset
-	c.writer.Write(utils.EncodeAttachedMessage(name, 0))
+	offset := c.subscriptions.AddSubscription(name)
+	c.writer.Write(utils.EncodeAttachedMessage(name, offset))
 }
 
 func (c *Connection) onAttachFromOffset(name string, offset uint64) {
-	c.subscriptions.AddSubscriptionFromOffset(name, offset)
-
-	// TODO(AD) include offset
-	c.writer.Write(utils.EncodeAttachedMessage(name, 0))
+	offset = c.subscriptions.AddSubscriptionFromOffset(name, offset)
+	c.writer.Write(utils.EncodeAttachedMessage(name, offset))
 }

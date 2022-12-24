@@ -27,7 +27,7 @@ func TestSubscription_SubscribeLatest(t *testing.T) {
 		SegmentSize: 1000,
 	})
 	attachment := newFakeAttachment()
-	sub := NewSubscription(attachment, topic)
+	sub, _ := NewSubscription(attachment, topic)
 	defer sub.Shutdown()
 
 	topic.Publish([]byte("foo"))
@@ -62,7 +62,7 @@ func TestSubscription_SubscribeRecover(t *testing.T) {
 	topic.Publish([]byte("bar"))
 
 	attachment := newFakeAttachment()
-	sub := NewSubscriptionFromOffset(attachment, topic, 0)
+	sub, _ := NewSubscriptionFromOffset(attachment, topic, 0)
 	defer sub.Shutdown()
 
 	// Publish 2 messages prior after subscribing.

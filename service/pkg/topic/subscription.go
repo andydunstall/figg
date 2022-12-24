@@ -26,7 +26,7 @@ type Subscription struct {
 
 // NewSubscription creates a subscription to the given topic starting from the
 // next message in the topic.
-func NewSubscription(attachment Attachment, topic *Topic) *Subscription {
+func NewSubscription(attachment Attachment, topic *Topic) (*Subscription, uint64) {
 	// Use the offset of the last message in the topic.
 	return NewSubscriptionFromOffset(attachment, topic, topic.Offset())
 }
@@ -35,7 +35,7 @@ func NewSubscription(attachment Attachment, topic *Topic) *Subscription {
 // at the next message after the given offset. If the offset is less than the
 // earliest message retained by the topic, will subscribe from that earliest
 // retained message.
-func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint64) *Subscription {
+func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint64) (*Subscription, uint64) {
 	s := &Subscription{
 		topic:      topic,
 		offset:     offset,
@@ -47,7 +47,7 @@ func NewSubscriptionFromOffset(attachment Attachment, topic *Topic, offset uint6
 	} else {
 		go s.resumeLoop()
 	}
-	return s
+	return s, offset
 }
 
 // Notify notifys the subscriber about a new message.

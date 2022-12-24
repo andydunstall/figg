@@ -14,16 +14,18 @@ func NewSubscriptions(broker *Broker, attachment Attachment) *Subscriptions {
 	}
 }
 
-func (s *Subscriptions) AddSubscription(topicName string) {
+func (s *Subscriptions) AddSubscription(topicName string) uint64 {
 	topic := s.broker.GetTopic(topicName)
-	sub := NewSubscription(s.attachment, topic)
+	sub, offset := NewSubscription(s.attachment, topic)
 	s.subscriptions[sub] = struct{}{}
+	return offset
 }
 
-func (s *Subscriptions) AddSubscriptionFromOffset(topicName string, lastOffset uint64) {
+func (s *Subscriptions) AddSubscriptionFromOffset(topicName string, lastOffset uint64) uint64 {
 	topic := s.broker.GetTopic(topicName)
-	sub := NewSubscriptionFromOffset(s.attachment, topic, lastOffset)
+	sub, offset := NewSubscriptionFromOffset(s.attachment, topic, lastOffset)
 	s.subscriptions[sub] = struct{}{}
+	return offset
 }
 
 func (s *Subscriptions) Shutdown() {
