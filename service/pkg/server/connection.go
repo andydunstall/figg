@@ -73,7 +73,7 @@ func (c *Connection) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Connection) onMessage(messageType utils.MessageType, b []byte) int {
+func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 	offset := 0
 	switch messageType {
 	case utils.TypeAttach:
@@ -88,8 +88,6 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) int {
 		} else {
 			c.onAttach(topicName)
 		}
-
-		return offset
 	case utils.TypePublish:
 		topicLen, offset := utils.DecodeUint32(b, offset)
 		topicName := string(b[offset : offset+int(topicLen)])
@@ -99,20 +97,11 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) int {
 		data := b[offset : offset+int(dataLen)]
 		offset += int(dataLen)
 
-		topic, err := c.broker.GetTopic(topicName)
-		if err != nil {
-			// TODO(AD)
-		}
-		if err := topic.Publish(data); err != nil {
-			// TODO(AD)
-		}
+		topic := c.broker.GetTopic(topicName)
+		topic.Publish(data)
 
 		c.writer.Write(utils.EncodeACKMessage(seqNum))
-
-		return offset
 	}
-
-	return 0
 }
 
 func (c *Connection) onAttach(name string) {

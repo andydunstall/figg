@@ -28,7 +28,7 @@ type Topic struct {
 	offset      uint64
 }
 
-func NewTopic(name string, options Options) (*Topic, error) {
+func NewTopic(name string, options Options) *Topic {
 	log := commitlog.NewCommitLog(
 		options.Persisted,
 		options.SegmentSize,
@@ -40,7 +40,7 @@ func NewTopic(name string, options Options) (*Topic, error) {
 		mu:          sync.Mutex{},
 		subscribers: []*Subscription{},
 		offset:      0,
-	}, nil
+	}
 }
 
 func (t *Topic) Name() string {
@@ -65,11 +65,9 @@ func (t *Topic) GetMessage(offset uint64) ([]byte, error) {
 	return b, nil
 }
 
-func (t *Topic) Publish(b []byte) error {
+func (t *Topic) Publish(b []byte) {
 	// Add to the commit log before sending to subscribers.
-	if err := t.log.Append(b); err != nil {
-		return err
-	}
+	t.log.Append(b)
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -85,8 +83,6 @@ func (t *Topic) Publish(b []byte) error {
 	for _, sub := range t.subscribers {
 		sub.Notify(m)
 	}
-
-	return nil
 }
 
 func (t *Topic) Subscribe(s *Subscription) {

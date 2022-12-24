@@ -34,11 +34,10 @@ func (a *nopAttachment) Send(ctx context.Context, m Message) {
 }
 
 func TestTopic_PublishMultipleMessages(t *testing.T) {
-	topic, err := NewTopic("mytopic", Options{
+	topic := NewTopic("mytopic", Options{
 		Persisted:   false,
 		SegmentSize: 1000,
 	})
-	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
 	topic.Publish([]byte("bar"))
@@ -61,11 +60,10 @@ func TestTopic_PublishMultipleMessages(t *testing.T) {
 }
 
 func TestTopic_PublishOneMessage(t *testing.T) {
-	topic, err := NewTopic("mytopic", Options{
+	topic := NewTopic("mytopic", Options{
 		Persisted:   false,
 		SegmentSize: 1000,
 	})
-	assert.Nil(t, err)
 
 	topic.Publish([]byte("foo"))
 
@@ -75,13 +73,12 @@ func TestTopic_PublishOneMessage(t *testing.T) {
 }
 
 func TestTopic_GetInitialMessage(t *testing.T) {
-	topic, err := NewTopic("mytopic", Options{
+	topic := NewTopic("mytopic", Options{
 		Persisted:   false,
 		SegmentSize: 1000,
 	})
-	assert.Nil(t, err)
 
-	_, err = topic.GetMessage(topic.Offset())
+	_, err := topic.GetMessage(topic.Offset())
 	assert.Equal(t, commitlog.ErrNotFound, err)
 }
 
@@ -104,10 +101,7 @@ func benchmarkTopicPublish(topicName string, publishes int, subscribers int, mes
 		subscriptions.AddSubscription(topicName)
 	}
 
-	topic, err := broker.GetTopic(topicName)
-	if err != nil {
-		panic(err)
-	}
+	topic := broker.GetTopic(topicName)
 	for i := 0; i != publishes; i++ {
 		topic.Publish(message)
 	}
@@ -130,10 +124,7 @@ func benchmarkTopicResume(topicName string, publishes int, messageLen int) {
 
 	attachment := newNopAttachment(publishes)
 
-	topic, err := broker.GetTopic(topicName)
-	if err != nil {
-		panic(err)
-	}
+	topic := broker.GetTopic(topicName)
 	for i := 0; i != publishes; i++ {
 		topic.Publish(message)
 	}
