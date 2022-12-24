@@ -305,14 +305,32 @@ func (c *connection) onConnect(conn net.Conn) {
 	}
 
 	for _, att := range c.attachments.Attached() {
+		c.opts.Logger.Debug(
+			"re-attach",
+			zap.String("topic", att.Name),
+			zap.Uint64("offset", att.Offset),
+		)
+
 		c.send(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
 	}
 
 	for _, topic := range c.attachments.Detaching() {
+		c.opts.Logger.Debug(
+			"re-detach",
+			zap.String("topic", topic),
+		)
+
 		c.send(utils.EncodeDetachMessage(topic))
 	}
 
 	for _, m := range c.pendingMessages.Messages() {
+		c.opts.Logger.Debug(
+			"re-publish",
+			zap.String("topic", m.Topic),
+			zap.Int("data-len", len(m.Data)),
+			zap.Uint64("seqNum", m.SeqNum),
+		)
+
 		// Look at using net.Buffers when data large to avoid copying into
 		// message buffer.
 		c.send(utils.EncodePublishMessage(m.Topic, m.SeqNum, m.Data))
