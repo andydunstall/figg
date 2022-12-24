@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/andydunstall/figg/service"
-	"github.com/andydunstall/figg/service/pkg/config"
+	"github.com/andydunstall/figg/server"
+	"github.com/andydunstall/figg/server/pkg/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -20,7 +20,7 @@ type Node struct {
 
 	logger *zap.Logger
 
-	figg *service.Figg
+	figg *server.Figg
 }
 
 func NewNode(logger *zap.Logger) (*Node, error) {
@@ -56,7 +56,7 @@ func NewNode(logger *zap.Logger) (*Node, error) {
 		return nil, err
 	}
 
-	figg := service.NewFigg(config, procLogger)
+	figg := server.NewFigg(config, procLogger)
 	go figg.ServeWithListener(listener)
 
 	return &Node{

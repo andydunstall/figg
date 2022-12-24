@@ -3,7 +3,7 @@ package topic
 import (
 	"sync"
 
-	"github.com/andydunstall/figg/service/pkg/commitlog"
+	"github.com/andydunstall/figg/server/pkg/commitlog"
 )
 
 type Message struct {

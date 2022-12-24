@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/server/pkg/topic"
 	"github.com/andydunstall/figg/utils"
 	"github.com/stretchr/testify/assert"
 )

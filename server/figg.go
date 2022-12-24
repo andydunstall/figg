@@ -1,12 +1,12 @@
-package service
+package server
 
 import (
 	"errors"
 	"net"
 
-	"github.com/andydunstall/figg/service/pkg/config"
-	"github.com/andydunstall/figg/service/pkg/server"
-	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/server/pkg/config"
+	"github.com/andydunstall/figg/server/pkg/server"
+	"github.com/andydunstall/figg/server/pkg/topic"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +44,7 @@ func (f *Figg) ServeWithListener(lis net.Listener) error {
 		return errors.New("already serving")
 	}
 
-	f.logger.Info("starting figg service", zap.Object("config", f.config))
+	f.logger.Info("starting figg server", zap.Object("config", f.config))
 
 	f.lis = lis
 	return f.server.Serve(lis)

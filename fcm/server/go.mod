@@ -1,4 +1,4 @@
-module github.com/andydunstall/figg/fcm/service
+module github.com/andydunstall/figg/fcm/server
 
 go 1.19
 
@@ -15,9 +15,9 @@ require (
 	golang.org/x/sys v0.0.0-20220909162455-aba9fc2a8ff2 // indirect
 )
 
-require github.com/andydunstall/figg/service v0.0.0
+require github.com/andydunstall/figg/server v0.0.0
 
-replace github.com/andydunstall/figg/service v0.0.0 => ../../service
+replace github.com/andydunstall/figg/server v0.0.0 => ../../server
 
 require github.com/andydunstall/figg/utils v0.0.0 // indirect
 

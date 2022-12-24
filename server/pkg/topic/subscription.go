@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/andydunstall/figg/service/pkg/commitlog"
+	"github.com/andydunstall/figg/server/pkg/commitlog"
 )
 
 type Attachment interface {

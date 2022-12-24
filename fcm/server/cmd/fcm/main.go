@@ -3,7 +3,7 @@ package main
 import (
 	"net"
 
-	"github.com/andydunstall/figg/fcm/service/pkg/server"
+	"github.com/andydunstall/figg/fcm/server/pkg/server"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	logger.Info("starting fcm service", zap.String("addr", Addr))
+	logger.Info("starting fcm server", zap.String("addr", Addr))
 
 	lis, err := net.Listen("tcp", Addr)
 	if err != nil {

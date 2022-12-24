@@ -15,7 +15,7 @@ though Figg doesn't yet support clustering so is only used for a single node
 cluster at the moment.*
 
 ## Components
-* [`service/`](./service): FCM backend service,
+* [`server/`](./server): FCM backend server,
 * [`sdk/`](./sdk): FCM Go SDK,
 * [`cli/`](./cli): FCM CLI.
 

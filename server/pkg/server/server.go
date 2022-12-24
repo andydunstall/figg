@@ -3,7 +3,7 @@ package server
 import (
 	"net"
 
-	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/server/pkg/topic"
 	"go.uber.org/zap"
 )
 

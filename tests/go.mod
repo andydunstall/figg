@@ -31,9 +31,9 @@ require (
 
 replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
 
-require github.com/andydunstall/figg/service v0.0.0 // indirect
+require github.com/andydunstall/figg/server v0.0.0 // indirect
 
-replace github.com/andydunstall/figg/service v0.0.0 => ../service
+replace github.com/andydunstall/figg/server v0.0.0 => ../server
 
 require github.com/andydunstall/figg/fcm/lib v0.0.0
 

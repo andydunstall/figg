@@ -1,4 +1,4 @@
-module github.com/andydunstall/figg/service
+module github.com/andydunstall/figg/server
 
 go 1.19
 

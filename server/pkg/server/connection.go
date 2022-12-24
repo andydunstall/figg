@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/andydunstall/figg/service/pkg/topic"
+	"github.com/andydunstall/figg/server/pkg/topic"
 	"github.com/andydunstall/figg/utils"
 )
 
