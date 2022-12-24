@@ -18,9 +18,15 @@ func TestConnection_Attach(t *testing.T) {
 	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachedMessage("foo", 0))
 }
 
-// TODO(AD) attach from offset
+func TestConnection_AttachFromOffset(t *testing.T) {
+	conn, fakeConn := newFakeConnection()
+	defer conn.Close()
 
-// TODO(AD) Test attached returns offset
+	fakeConn.Push(utils.EncodeAttachFromOffsetMessage("foo", 0xff))
+
+	assert.Nil(t, conn.Recv())
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodeAttachedMessage("foo", 0xff))
+}
 
 func TestConnection_Publish(t *testing.T) {
 	conn, fakeConn := newFakeConnection()
