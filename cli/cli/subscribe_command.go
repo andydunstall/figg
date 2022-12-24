@@ -41,7 +41,7 @@ func (c *SubscribeCommand) run(topic string) error {
 	if err != nil {
 		return err
 	}
-	client.Subscribe(topic, func(m figg.Message) {
+	client.Subscribe(topic, func(m *figg.Message) {
 		fmt.Println("<-", string(m.Data))
 	})
 

@@ -119,7 +119,7 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.Subscribe("bench-subscribe", func(m figg.Message) {
+	subscriber.Subscribe("bench-subscribe", func(m *figg.Message) {
 		received++
 		if received == count {
 			close(doneCh)
@@ -179,7 +179,7 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	count := c.publishes
 	received := 0
-	subscriber.Subscribe("bench-resume", func(m figg.Message) {
+	subscriber.Subscribe("bench-resume", func(m *figg.Message) {
 		received++
 		if received == count {
 			close(doneCh)

@@ -170,7 +170,7 @@ func (a *attachments) OnDetached(name string) {
 	delete(a.detaching, name)
 }
 
-func (a *attachments) OnMessage(name string, m Message) {
+func (a *attachments) OnMessage(name string, m *Message) {
 	// If not attached nothing to do. Likely due to being in detaching state.
 	if !a.isAttached(name) {
 		return

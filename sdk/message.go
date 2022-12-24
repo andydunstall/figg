@@ -9,4 +9,4 @@ type Message struct {
 	Offset uint64
 }
 
-type MessageCB func(m Message)
+type MessageCB func(m *Message)
