@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime/pprof"
 
 	adminService "github.com/andydunstall/figg/server/pkg/admin/service"
 	"github.com/andydunstall/figg/server/pkg/config"
@@ -21,15 +20,6 @@ func setupLogger(debugMode bool) (*zap.Logger, error) {
 		return logger, nil
 	}
 	return zap.NewProduction()
-}
-
-func setupCPUProfile(path string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	pprof.StartCPUProfile(f)
-	return nil
 }
 
 func waitForInterrupt() {
@@ -49,27 +39,6 @@ func main() {
 		log.Fatalf("failed to setup logger: %s", err)
 	}
 	defer logger.Sync()
-
-	if config.CPUProfile != "" {
-		if err := setupCPUProfile(config.CPUProfile); err != nil {
-			logger.Fatal("failed to start cpu profile", zap.Error(err))
-		}
-		logger.Info("started cpu profile", zap.String("output", config.CPUProfile))
-		defer pprof.StopCPUProfile()
-	}
-
-	if config.MemoryProfile != "" {
-		logger.Info("started memory profile", zap.String("output", config.MemoryProfile))
-		defer func() {
-			f, err := os.Create(config.MemoryProfile)
-			if err != nil {
-				logger.Fatal("failed to open memory profile", zap.Error(err))
-				return
-			}
-			logger.Info("writing memory profile", zap.String("output", config.MemoryProfile))
-			pprof.WriteHeapProfile(f)
-		}()
-	}
 
 	messagingService := messagingService.NewMessagingService(config, logger)
 	_, err = messagingService.Serve()
