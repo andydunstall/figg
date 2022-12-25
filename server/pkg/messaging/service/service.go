@@ -1,11 +1,11 @@
-package messaging
+package service
 
 import (
 	"net"
 	"sync"
 
 	"github.com/andydunstall/figg/server/pkg/config"
-	"github.com/andydunstall/figg/server/pkg/server"
+	"github.com/andydunstall/figg/server/pkg/messaging/server"
 	"github.com/andydunstall/figg/server/pkg/topic"
 	"go.uber.org/zap"
 )
