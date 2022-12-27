@@ -55,18 +55,26 @@ func (c *BenchCommand) run() error {
 
 func (c *BenchCommand) runPublish() error {
 	fmt.Println("====== PUBLISH ======")
+	elapsedTotal := int64(0)
 	for i := 0; i != c.samples; i++ {
-		if err := c.samplePublish(i, 1024); err != nil {
+		elapsed, err := c.samplePublish(i, 1024)
+		if err != nil {
 			return err
 		}
+		elapsedTotal += elapsed
 	}
+
+	fmt.Printf("  ====== AVERAGE ======\n")
+	fmt.Printf("  elapsed: %s\n", time.Duration(elapsedTotal/int64(c.samples)))
+	fmt.Println()
+
 	return nil
 }
 
-func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
+func (c *BenchCommand) samplePublish(i int, payloadLen int) (int64, error) {
 	publisher, err := c.connectedClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer publisher.Close()
 
@@ -82,41 +90,49 @@ func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
 	}
 	// Only wait for the last message to be acknowledged.
 	publisher.Publish("bench-publish", message, func() {
-		elapsed := time.Since(start)
-		fmt.Printf("  ====== SAMPLE %d ======\n", i)
-		fmt.Printf("  requests: %d\n", c.publishes)
-		fmt.Printf("  payload size: %d\n", payloadLen)
-		fmt.Printf("  elapsed: %s\n", elapsed)
-		fmt.Println("")
-
 		close(done)
 	})
 
 	<-done
 
-	return nil
+	elapsed := time.Since(start)
+	fmt.Printf("  ====== SAMPLE %d ======\n", i)
+	fmt.Printf("  requests: %d\n", c.publishes)
+	fmt.Printf("  payload size: %d\n", payloadLen)
+	fmt.Printf("  elapsed: %s\n", elapsed)
+	fmt.Println("")
+
+	return elapsed.Nanoseconds(), nil
 }
 
 func (c *BenchCommand) runSubscribe() error {
 	fmt.Println("====== SUBSCRIBE ======")
+	elapsedTotal := int64(0)
 	for i := 0; i != c.samples; i++ {
-		if err := c.sampleSubscribe(i, 1024); err != nil {
+		elapsed, err := c.sampleSubscribe(i, 1024)
+		if err != nil {
 			return err
 		}
+		elapsedTotal += elapsed
 	}
+
+	fmt.Printf("  ====== AVERAGE ======\n")
+	fmt.Printf("  elapsed: %s\n", time.Duration(elapsedTotal/int64(c.samples)))
+	fmt.Println()
+
 	return nil
 }
 
-func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
+func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) (int64, error) {
 	publisher, err := c.connectedClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer publisher.Close()
 
 	subscriber, err := c.connectedClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer subscriber.Close()
 
@@ -149,23 +165,31 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 	fmt.Printf("  elapsed: %s\n", elapsed)
 	fmt.Println("")
 
-	return nil
+	return elapsed.Nanoseconds(), nil
 }
 
 func (c *BenchCommand) runResume() error {
 	fmt.Println("====== RESUME ======")
+	elapsedTotal := int64(0)
 	for i := 0; i != c.samples; i++ {
-		if err := c.sampleResume(i, 1024); err != nil {
+		elapsed, err := c.sampleResume(i, 1024)
+		if err != nil {
 			return err
 		}
+		elapsedTotal += elapsed
 	}
+
+	fmt.Printf("  ====== AVERAGE ======\n")
+	fmt.Printf("  elapsed: %s\n", time.Duration(elapsedTotal/int64(c.samples)))
+	fmt.Println()
+
 	return nil
 }
 
-func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
+func (c *BenchCommand) sampleResume(i int, payloadLen int) (int64, error) {
 	publisher, err := c.connectedClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer publisher.Close()
 
@@ -179,7 +203,7 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	subscriber, err := c.connectedClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer subscriber.Close()
 
@@ -205,7 +229,7 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 	fmt.Printf("  elapsed: %s\n", elapsed)
 	fmt.Println("")
 
-	return nil
+	return elapsed.Nanoseconds(), nil
 }
 
 func (c *BenchCommand) connectedClient() (*figg.Figg, error) {
