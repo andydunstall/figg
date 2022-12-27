@@ -39,7 +39,7 @@ type Options struct {
 	ConnStateChangeCB ConnStateChangeCB
 
 	// WindowSize is the number of unacknowledged in-flight messages are allowed
-	// before Publish blocking. Defaults to 64.
+	// before Publish blocking. Defaults to 256.
 	WindowSize int
 
 	// Logger is a custom logger to log events, which should be configured with
@@ -94,7 +94,7 @@ func defaultOptions(addr string) *Options {
 		},
 		ReconnectBackoffCB: defaultReconnectBackoffCB,
 		ConnStateChangeCB:  nil,
-		WindowSize:         64,
+		WindowSize:         256,
 		Logger:             zap.NewNop(),
 	}
 }
