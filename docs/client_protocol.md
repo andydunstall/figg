@@ -79,30 +79,35 @@ The client publishes messages by sending `PUBLISH` messages.
 Note the client doesn't need to be attached to publish. They only attach to
 subscribe.
 
-To guarantee delivery, the client must retry any messages that have not been
-received by the server.
+Since TCP does not guarantee delivery the server acknowledges the messages it
+has processed.
 
-To acheive this, the client assigns each published message a unique sequence
-number (which must be greater than all previous published messages). It includes
-the sequence number in the `PUBLISH` message, sends this to the server then
-stores all unacknowledged messages.
+Each client tracks a 64 bit sequence number which is incremented for each
+published message. `PUBLISH` messages includes this assigned sequence number
+which is both sent to the server and buffered on the client. Once the server
+has processed a message it responds with an `ACK` containing the sequence number
+of the last message processed.
 
-Once the server has processed the message it responds with an `ACK` that contains
-the sequence number of the last message processed. When the client receives this
-`ACK` it can clear any stored messages with a sequence number equal to or less
-than this number.
+Note not worried about overflow (publishing 1 million message per second would
+take millions of years to overflow).
 
-If the clients connection drops, when it reconnects it resends all unacknowleged
-messages (in order).
+Similar to TCP, the client stores unacknowledged messages in a sliding window
+of a fixed size, implemented as a circular buffer. When a message is
+acknowledged it and all messages with a smaller sequence number are removed. If
+the buffer is full publish will block. If the client disconnects, when it
+reconnects it resends all unacknowleged messages (in the same order as the
+original publishes).
+
+The publish method accepts a callback that will be called once the published
+message is acknowledged. To acheive high thoughput users should not wait for
+messages to be acknowledged before sending the next. If this is required they
+can use a 'publish blocking' method that waits for the ACK before returning.
 
 Note the connection could drop after the server processes the publish but before
 it sends the ACK, which would cause the client to resend the message leading
 to duplicates. This means the service provides at least once delivery, rather
 than exactly once delivery, since guaranteeing exactly once delivery would add
 so much overhead the service would be too slow.
-
-In the future should probably limit the number of pending messages waiting to
-be acknowledged but for now its unbounded.
 
 ## Protocol
 The Figg protocol uses a simple binary protocol to encode messages.
