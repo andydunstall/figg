@@ -52,7 +52,12 @@ func (c *Connection) Recv() error {
 }
 
 func (c *Connection) SendDataMessage(m topic.Message) {
-	c.writer.Write(utils.EncodeDataMessage(m.Topic, m.Offset, m.Message))
+	// Avoid copying m.Message into another buffer, so send the prefix
+	// separately.
+	c.writer.Write(
+		utils.EncodeDataMessagePrefix(m.Topic, m.Offset, m.Message),
+		m.Message,
+	)
 }
 
 func (c *Connection) Close() error {

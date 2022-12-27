@@ -36,11 +36,11 @@ func NewBufferedWriter(w io.Writer) *BufferedWriter {
 	return writer
 }
 
-func (w *BufferedWriter) Write(b []byte) error {
+func (w *BufferedWriter) Write(bufs ...[]byte) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.buf = append(w.buf, b)
+	w.buf = append(w.buf, bufs...)
 	w.cv.Signal()
 	return nil
 }
