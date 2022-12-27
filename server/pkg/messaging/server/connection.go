@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/andydunstall/figg/server/pkg/topic"
 	"github.com/andydunstall/figg/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -19,14 +20,21 @@ type Connection struct {
 
 	broker        *topic.Broker
 	subscriptions *topic.Subscriptions
+
+	logger *zap.Logger
 }
 
-func NewConnection(conn utils.NetworkConnection, broker *topic.Broker) *Connection {
+func NewConnection(
+	conn utils.NetworkConnection,
+	broker *topic.Broker,
+	logger *zap.Logger,
+) *Connection {
 	c := &Connection{
 		conn:   conn,
 		reader: utils.NewBufferedReader(conn, readBufferLen),
 		writer: utils.NewBufferedWriter(conn),
 		broker: broker,
+		logger: logger,
 	}
 	c.subscriptions = topic.NewSubscriptions(broker, NewConnectionAttachment(c))
 	return c
@@ -62,6 +70,14 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 		offset += int(topicLen)
 		topicOffset, offset := utils.DecodeUint64(b, offset)
 
+		c.logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.String("topic", topicName),
+			zap.Uint64("offset", topicOffset),
+			zap.Uint16("flags", flags),
+		)
+
 		if flags&utils.FlagUseOffset > 0 {
 			c.onAttachFromOffset(topicName, topicOffset)
 		} else {
@@ -75,6 +91,14 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 		dataLen, offset := utils.DecodeUint32(b, offset)
 		data := b[offset : offset+int(dataLen)]
 		offset += int(dataLen)
+
+		c.logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.String("topic", topicName),
+			zap.Uint64("seq-num", seqNum),
+			zap.Int("data-len", len(data)),
+		)
 
 		topic := c.broker.GetTopic(topicName)
 		topic.Publish(data)

@@ -6,17 +6,20 @@ import (
 
 	"github.com/andydunstall/figg/server/pkg/admin/server"
 	"github.com/andydunstall/figg/server/pkg/config"
+	"go.uber.org/zap"
 )
 
 type AdminService struct {
 	config config.Config
+	logger *zap.Logger
 	lis    net.Listener
 	wg     sync.WaitGroup
 }
 
-func NewAdminService(config config.Config) *AdminService {
+func NewAdminService(config config.Config, logger *zap.Logger) *AdminService {
 	return &AdminService{
 		config: config,
+		logger: logger,
 		wg:     sync.WaitGroup{},
 	}
 }
@@ -26,6 +29,8 @@ func NewAdminService(config config.Config) *AdminService {
 // Note this won't always be the same as the configured address, such as if
 // port 0 used the system will assign a free port.
 func (s *AdminService) Serve() (string, error) {
+	s.logger.Info("starting admin service")
+
 	server := server.NewServer()
 
 	lis, err := net.Listen("tcp", s.config.AdminAddr)
