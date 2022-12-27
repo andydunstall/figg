@@ -38,6 +38,10 @@ type Options struct {
 	// connection state changes. Note this must not block.
 	ConnStateChangeCB ConnStateChangeCB
 
+	// WindowSize is the number of unacknowledged in-flight messages are allowed
+	// before Publish blocking. Defaults to 64.
+	WindowSize int
+
 	// Logger is a custom logger to log events, which should be configured with
 	// the desired logging level. If nil no logging is used.
 	Logger *zap.Logger
@@ -69,6 +73,12 @@ func WithConnStateChangeCB(cb ConnStateChangeCB) Option {
 	}
 }
 
+func WithWindowSize(windowSize int) Option {
+	return func(opts *Options) {
+		opts.WindowSize = windowSize
+	}
+}
+
 func WithLogger(logger *zap.Logger) Option {
 	return func(opts *Options) {
 		opts.Logger = logger
@@ -84,6 +94,7 @@ func defaultOptions(addr string) *Options {
 		},
 		ReconnectBackoffCB: defaultReconnectBackoffCB,
 		ConnStateChangeCB:  nil,
+		WindowSize:         64,
 		Logger:             zap.NewNop(),
 	}
 }

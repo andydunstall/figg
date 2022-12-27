@@ -19,8 +19,8 @@ type connection struct {
 	onStateChange func(state ConnState)
 	opts          *Options
 
-	attachments     *attachments
-	pendingMessages *pendingMessages
+	attachments *attachments
+	window      *slidingWindow
 
 	// shutdown is an atomic flag indicating if the client has been shutdown.
 	shutdown int32
@@ -41,16 +41,16 @@ type connection struct {
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
 	return &connection{
-		onStateChange:   onStateChange,
-		opts:            opts,
-		attachments:     newAttachments(),
-		pendingMessages: newPendingMessages(),
-		shutdown:        0,
-		done:            make(chan interface{}),
-		mu:              sync.Mutex{},
-		conn:            nil,
-		reader:          nil,
-		writer:          nil,
+		onStateChange: onStateChange,
+		opts:          opts,
+		attachments:   newAttachments(),
+		window:        newSlidingWindow(opts.WindowSize),
+		shutdown:      0,
+		done:          make(chan interface{}),
+		mu:            sync.Mutex{},
+		conn:          nil,
+		reader:        nil,
+		writer:        nil,
 	}
 }
 
@@ -71,7 +71,7 @@ func (c *connection) Connect() error {
 }
 
 func (c *connection) Publish(name string, data []byte, onACK func()) {
-	seqNum := c.pendingMessages.Add(name, data, onACK)
+	seqNum := c.window.Push(name, data, onACK)
 
 	c.opts.Logger.Debug(
 		"publish",
@@ -259,7 +259,7 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 			zap.Uint64("seq-num", seqNum),
 		)
 
-		c.pendingMessages.Acknowledge(seqNum)
+		c.window.Acknowledge(seqNum)
 		return offset
 	case utils.TypeData:
 		topicLen, offset := utils.DecodeUint32(b, offset)
@@ -323,7 +323,7 @@ func (c *connection) onConnect(conn net.Conn) {
 		c.send(utils.EncodeDetachMessage(topic))
 	}
 
-	for _, m := range c.pendingMessages.Messages() {
+	for _, m := range c.window.Messages() {
 		c.opts.Logger.Debug(
 			"re-publish",
 			zap.String("topic", m.Topic),
