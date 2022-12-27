@@ -36,7 +36,7 @@ func TestPublish_ResendAfterDisconnect(t *testing.T) {
 
 	go func() {
 		for i := 0; i != 25; i++ {
-			pubClient.Publish("foo", []byte(fmt.Sprintf("message-%d", i)))
+			pubClient.PublishWaitForACK("foo", []byte(fmt.Sprintf("message-%d", i)))
 			// Add a delay so most publishes are sent while the subscriber
 			// is disconnected.
 			<-time.After(time.Millisecond * 250)

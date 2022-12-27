@@ -27,7 +27,7 @@ func NewBenchCommand(config *FiggConfig) *BenchCommand {
 		},
 	}
 	cobraCmd.PersistentFlags().IntVar(&command.samples, "samples", 5, "number of bench samples")
-	cobraCmd.PersistentFlags().IntVar(&command.publishes, "publishes", 10000, "number of publishes")
+	cobraCmd.PersistentFlags().IntVar(&command.publishes, "publishes", 50000, "number of publishes")
 	command.cobraCmd = cobraCmd
 	return command
 }
@@ -75,16 +75,24 @@ func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
 
 	start := time.Now()
 
-	for i := 0; i != c.publishes; i++ {
-		publisher.Publish("bench-publish", message)
-	}
+	done := make(chan interface{})
 
-	elapsed := time.Since(start)
-	fmt.Printf("  ====== SAMPLE %d ======\n", i)
-	fmt.Printf("  requests: %d\n", c.publishes)
-	fmt.Printf("  payload size: %d\n", payloadLen)
-	fmt.Printf("  elapsed: %s\n", elapsed)
-	fmt.Println("")
+	for i := 0; i != c.publishes-1; i++ {
+		publisher.Publish("bench-publish", message, nil)
+	}
+	// Only wait for the last message to be acknowledged.
+	publisher.Publish("bench-publish", message, func() {
+		elapsed := time.Since(start)
+		fmt.Printf("  ====== SAMPLE %d ======\n", i)
+		fmt.Printf("  requests: %d\n", c.publishes)
+		fmt.Printf("  payload size: %d\n", payloadLen)
+		fmt.Printf("  elapsed: %s\n", elapsed)
+		fmt.Println("")
+
+		close(done)
+	})
+
+	<-done
 
 	return nil
 }
@@ -129,7 +137,7 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != count; i++ {
-		publisher.Publish("bench-subscribe", message)
+		publisher.Publish("bench-subscribe", message, nil)
 	}
 
 	<-doneCh
@@ -163,9 +171,11 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 
 	message := make([]byte, payloadLen)
 	rand.Read(message)
-	for i := 0; i != c.publishes; i++ {
-		publisher.Publish("bench-resume", message)
+	for i := 0; i != c.publishes-1; i++ {
+		publisher.Publish("bench-resume", message, nil)
 	}
+	// Only wait for the last message to be ACKed.
+	publisher.PublishWaitForACK("bench-resume", message)
 
 	subscriber, err := c.connectedClient()
 	if err != nil {
