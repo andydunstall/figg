@@ -45,12 +45,15 @@ client.Publish("foo", []byte("bar"))
 ```
 
 ## Benchmarking
-The Figg server can be benchmarked using `./bin/cli.sh bench` which runs
-benchmarks for multiple scenarios. The server can be configured to output
-CPU and memory profiles using `--cpuprofile` and `--memoryprofile` respectively
-which can be analysed using `go tool pprof`.
+The main benchmarks are ran with `./bin/cli.sh bench` which runs scenarios:
+* Publish: Publishes N messages and waits for the final message to be
+acknowledged,
+* Subscribe: Publishes N messages on one connection and waits for another
+connection to receive all of the published messages,
+* Resume: Subscribes to a topic that already has N messages and subscribes
+from an offset of 0 and waits for all the N messages to be received.
 
-Some performance critical components have benchmark tests that can be run with
+Some performance critical components also have benchmark tests ran with
 `go test` or `./bin/bench.sh`.
 
 ## Testing
