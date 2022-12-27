@@ -164,6 +164,8 @@ field is unused)
   * `topic` ([]byte)
   * `seq_num` (uint64)
   * `data` ([]byte)
+* Note `data` is last so we can use `writev` and avoid an extra copy of the
+`data`.
 
 #### ACK
 * Message type: `6`
@@ -178,3 +180,5 @@ field is unused)
   * `topic` ([]byte)
   * `offset` (uint64)
   * `data` ([]byte)
+* Note `data` is last so we can use `writev` and avoid an extra copy of the
+`data`.

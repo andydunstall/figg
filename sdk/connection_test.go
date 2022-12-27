@@ -158,9 +158,12 @@ func TestConnection_Publish(t *testing.T) {
 	conn.Publish("foo", []byte("B"), func() {})
 	conn.Publish("bar", []byte("C"), func() {})
 
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("A"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("B"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("C"))
 }
 
 func TestConnection_PublishRetryOnReconnect(t *testing.T) {
@@ -171,15 +174,21 @@ func TestConnection_PublishRetryOnReconnect(t *testing.T) {
 	conn.Publish("foo", []byte("B"), func() {})
 	conn.Publish("bar", []byte("C"), func() {})
 
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("A"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("B"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("C"))
 
 	// Reconnect before ACK'ing. Expect to receive the messages again.
 	conn.Reconnect()
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 0, []byte("A")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("foo", 1, []byte("B")))
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 0, []byte("A")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("A"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("foo", 1, []byte("B")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("B"))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("C"))
 
 	// ACK the first 2 messages only.
 	fakeConn.Push(utils.EncodeACKMessage(1))
@@ -187,7 +196,8 @@ func TestConnection_PublishRetryOnReconnect(t *testing.T) {
 
 	// Reconnect again and now should only get the only unACK'ed message resent.
 	conn.Reconnect()
-	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessage("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePublishMessagePrefix("bar", 2, []byte("C")))
+	assert.Equal(t, fakeConn.NextWritten(), []byte("C"))
 
 	// ACK the final message. Now when reconnecting no publishes should be
 	// retried.

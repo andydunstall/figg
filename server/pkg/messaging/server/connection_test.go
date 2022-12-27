@@ -61,7 +61,8 @@ func TestConnection_PublishSendMessagesToAttached(t *testing.T) {
 	assert.Nil(t, pubConn.Recv())
 
 	// Check the subscriber connection receives the message.
-	assert.Equal(t, subFakeConn.NextWritten(), utils.EncodeDataMessage("foo", 7, []byte("bar")))
+	assert.Equal(t, subFakeConn.NextWritten(), utils.EncodeDataMessagePrefix("foo", 7, []byte("bar")))
+	assert.Equal(t, subFakeConn.NextWritten(), []byte("bar"))
 }
 
 func newFakeConnection() (*Connection, *utils.FakeConn) {

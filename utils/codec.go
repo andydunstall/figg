@@ -204,6 +204,19 @@ func EncodePublishMessage(topic string, seqNum uint64, data []byte) []byte {
 	return buf
 }
 
+func EncodePublishMessagePrefix(topic string, seqNum uint64, data []byte) []byte {
+	payloadLen := uint32Len + len(topic) + uint64Len + uint32Len + len(data)
+
+	buf := make([]byte, HeaderLen+payloadLen-len(data))
+	offset := EncodeHeader(buf, 0, TypePublish, uint32(payloadLen))
+
+	offset = EncodeBytes(buf, offset, []byte(topic))
+	offset = EncodeUint64(buf, offset, seqNum)
+	EncodeUint32(buf, offset, uint32(len(data)))
+
+	return buf
+}
+
 func EncodeACKMessage(seqNum uint64) []byte {
 	payloadLen := uint64Len
 
@@ -215,6 +228,8 @@ func EncodeACKMessage(seqNum uint64) []byte {
 	return buf
 }
 
+// Note avoid using, should use EncodeDataMessagePrefix instead to avoid
+// copying data.
 func EncodeDataMessage(topic string, topicOffset uint64, data []byte) []byte {
 	payloadLen := uint32Len + len(topic) + uint64Len + uint32Len + len(data)
 
@@ -224,6 +239,21 @@ func EncodeDataMessage(topic string, topicOffset uint64, data []byte) []byte {
 	offset = EncodeBytes(buf, offset, []byte(topic))
 	offset = EncodeUint64(buf, offset, topicOffset)
 	EncodeBytes(buf, offset, data)
+
+	return buf
+}
+
+// EncodeDataMessagePrefix returns a data message excluding the data itself.
+// This lets us use writeev and avoid copying data twice.
+func EncodeDataMessagePrefix(topic string, topicOffset uint64, data []byte) []byte {
+	payloadLen := uint32Len + len(topic) + uint64Len + uint32Len + len(data)
+
+	buf := make([]byte, HeaderLen+payloadLen-len(data))
+	offset := EncodeHeader(buf, 0, TypeData, uint32(payloadLen))
+
+	offset = EncodeBytes(buf, offset, []byte(topic))
+	offset = EncodeUint64(buf, offset, topicOffset)
+	EncodeUint32(buf, offset, uint32(len(data)))
 
 	return buf
 }

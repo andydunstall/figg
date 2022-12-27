@@ -83,7 +83,10 @@ func (c *connection) Publish(name string, data []byte, onACK func()) {
 	// Ignore any errors as we'll resend on reconnect.
 	// Look at using net.Buffers when data large to avoid copying into
 	// message buffer.
-	c.send(utils.EncodePublishMessage(name, seqNum, data))
+	c.send(
+		utils.EncodePublishMessagePrefix(name, seqNum, data),
+		data,
+	)
 }
 
 func (c *connection) Attach(name string, onAttached func(), onMessage MessageCB) error {
@@ -207,7 +210,7 @@ func (c *connection) Close() error {
 	return c.onDisconnect()
 }
 
-func (c *connection) send(b []byte) error {
+func (c *connection) send(bufs ...[]byte) error {
 	// Copy to avoid locking during IO.
 	c.mu.Lock()
 	writer := c.writer
@@ -216,7 +219,7 @@ func (c *connection) send(b []byte) error {
 	if writer == nil {
 		return ErrNotConnected
 	}
-	return writer.Write(b)
+	return writer.Write(bufs...)
 }
 
 func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
@@ -333,7 +336,10 @@ func (c *connection) onConnect(conn net.Conn) {
 
 		// Look at using net.Buffers when data large to avoid copying into
 		// message buffer.
-		c.send(utils.EncodePublishMessage(m.Topic, m.SeqNum, m.Data))
+		c.send(
+			utils.EncodePublishMessagePrefix(m.Topic, m.SeqNum, m.Data),
+			m.Data,
+		)
 	}
 }
 
