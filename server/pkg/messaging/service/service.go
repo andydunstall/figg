@@ -33,6 +33,8 @@ func NewMessagingService(config config.Config, logger *zap.Logger) *MessagingSer
 // Note this won't always be the same as the configured address, such as if
 // port 0 used the system will assign a free port.
 func (s *MessagingService) Serve() (string, error) {
+	s.logger.Info("starting messaging service")
+
 	server := server.NewServer(topic.NewBroker(topic.Options{
 		Persisted:   !s.config.CommitLogInMemory,
 		Dir:         s.config.CommitLogDir,

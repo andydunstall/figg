@@ -6,6 +6,7 @@ import (
 	"github.com/andydunstall/figg/server/pkg/topic"
 	"github.com/andydunstall/figg/utils"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestConnection_Attach(t *testing.T) {
@@ -68,12 +69,12 @@ func newFakeConnection() (*Connection, *utils.FakeConn) {
 	conn := NewConnection(fakeConn, topic.NewBroker(topic.Options{
 		Persisted:   false,
 		SegmentSize: 1000,
-	}))
+	}), zap.NewNop())
 	return conn, fakeConn
 }
 
 func newFakeConnectionWithBroker(broker *topic.Broker) (*Connection, *utils.FakeConn) {
 	fakeConn := utils.NewFakeConn()
-	conn := NewConnection(fakeConn, broker)
+	conn := NewConnection(fakeConn, broker, zap.NewNop())
 	return conn, fakeConn
 }

@@ -47,7 +47,7 @@ func main() {
 	}
 	defer messagingService.Close()
 
-	adminService := adminService.NewAdminService(config)
+	adminService := adminService.NewAdminService(config, logger)
 	_, err = adminService.Serve()
 	if err != nil {
 		logger.Fatal("failed to start admin service", zap.Error(err))

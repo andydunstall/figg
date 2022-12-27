@@ -26,7 +26,12 @@ func (s *Server) Serve(lis net.Listener) error {
 		if err != nil {
 			return err
 		}
-		go s.stream(NewConnection(conn, s.broker), conn.RemoteAddr().String())
+		go s.stream(
+			NewConnection(conn, s.broker, s.logger.With(
+				zap.String("client-addr", conn.RemoteAddr().String()),
+			)),
+			conn.RemoteAddr().String(),
+		)
 	}
 }
 
