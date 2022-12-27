@@ -75,7 +75,7 @@ func (c *StreamCommand) run() error {
 	for {
 		select {
 		case <-ticker.C:
-			publisher.Publish("stream-topic", []byte(fmt.Sprintf("%d", i)))
+			publisher.PublishWaitForACK("stream-topic", []byte(fmt.Sprintf("%d", i)))
 			i++
 		}
 	}

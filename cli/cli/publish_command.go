@@ -41,6 +41,6 @@ func (c *PublishCommand) run(topic string, message []byte) error {
 		return err
 	}
 
-	client.Publish(topic, message)
+	client.PublishWaitForACK(topic, message)
 	return nil
 }

@@ -76,7 +76,7 @@ func (c *BenchCommand) samplePublish(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != c.publishes; i++ {
-		publisher.Publish("bench-publish", message)
+		publisher.PublishWaitForACK("bench-publish", message)
 	}
 
 	elapsed := time.Since(start)
@@ -129,7 +129,7 @@ func (c *BenchCommand) sampleSubscribe(i int, payloadLen int) error {
 	start := time.Now()
 
 	for i := 0; i != count; i++ {
-		publisher.Publish("bench-subscribe", message)
+		publisher.PublishWaitForACK("bench-subscribe", message)
 	}
 
 	<-doneCh
@@ -164,7 +164,7 @@ func (c *BenchCommand) sampleResume(i int, payloadLen int) error {
 	message := make([]byte, payloadLen)
 	rand.Read(message)
 	for i := 0; i != c.publishes; i++ {
-		publisher.Publish("bench-resume", message)
+		publisher.PublishWaitForACK("bench-resume", message)
 	}
 
 	subscriber, err := c.connectedClient()

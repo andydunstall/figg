@@ -49,9 +49,17 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	return figg, nil
 }
 
-// Publish publishes the data to the given topic. This waits for the message to
-// be acknowledged.
-func (f *Figg) Publish(name string, data []byte) {
+// Publish publishes the data to the given topic. When the server acknowledges
+// the message onACK is called.
+func (f *Figg) Publish(name string, data []byte, onACK func()) {
+	f.conn.Publish(name, data, onACK)
+}
+
+// PublishBlocking is similar to Publish except it will block waiting for the
+// message is acknowledged. Note this will seriously limit thoughput so if
+// high thoughput is needed use Publish and don't wait for messages to be
+// acknowledged before sending the next.
+func (f *Figg) PublishWaitForACK(name string, data []byte) {
 	ch := make(chan interface{}, 1)
 	f.conn.Publish(name, data, func() {
 		ch <- struct{}{}
