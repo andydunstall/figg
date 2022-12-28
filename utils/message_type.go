@@ -10,6 +10,8 @@ const (
 	TypePublish  = MessageType(5)
 	TypeACK      = MessageType(6)
 	TypeData     = MessageType(7)
+	TypePing     = MessageType(8)
+	TypePong     = MessageType(9)
 )
 
 func (t MessageType) String() string {
@@ -28,6 +30,10 @@ func (t MessageType) String() string {
 		return "ACK"
 	case TypeData:
 		return "DATA"
+	case TypePing:
+		return "PING"
+	case TypePong:
+		return "PONG"
 	default:
 		return "UNKNOWN"
 	}
