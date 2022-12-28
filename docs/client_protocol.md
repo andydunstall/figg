@@ -5,7 +5,15 @@ Clients connect to Figg over TCP. Since Figg currently only supports a single
 node, the address of that node is passed to the client.
 
 ### Ping/Pong
-*TODO*
+The client sends a `PING` to the server every N milliseconds containing the
+current timestamp. When the server receives a `PING` it responds with a `PONG`
+echoing back the timestamp. This means the client can match each `PING` with
+corresponding `PONG`, and calculate the RTT between itself and the server.
+
+The client tracks how many `PING`s have been sent without receiving a `PONG`
+response, and if this exceeds some configured threshold it assumes it has
+disconnected so reconnects. Such as if some firewall is stopping traffic even
+the client never received a TCP FIN.
 
 ### Reconnect
 If the client detacts the connection has dropped, either by pings timing our
@@ -182,3 +190,15 @@ field is unused)
   * `data` ([]byte)
 * Note `data` is last so we can use `writev` and avoid an extra copy of the
 `data`.
+
+#### Ping
+* Message type: `8`
+* Direction: Client -> Server
+* Fields
+  * `timestamp` (uint64)
+
+#### Pong
+* Message type: `9`
+* Direction: Server -> Client
+* Fields
+  * `timestamp` (uint64)
