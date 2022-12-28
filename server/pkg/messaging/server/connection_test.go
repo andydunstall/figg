@@ -65,6 +65,16 @@ func TestConnection_PublishSendMessagesToAttached(t *testing.T) {
 	assert.Equal(t, subFakeConn.NextWritten(), []byte("bar"))
 }
 
+func TestConnection_Ping(t *testing.T) {
+	conn, fakeConn := newFakeConnection()
+	defer conn.Close()
+
+	fakeConn.Push(utils.EncodePingMessage(12345))
+
+	assert.Nil(t, conn.Recv())
+	assert.Equal(t, fakeConn.NextWritten(), utils.EncodePongMessage(12345))
+}
+
 func newFakeConnection() (*Connection, *utils.FakeConn) {
 	fakeConn := utils.NewFakeConn()
 	conn := NewConnection(fakeConn, topic.NewBroker(topic.Options{
