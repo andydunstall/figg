@@ -8,6 +8,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	DefaultReadBufLen = 1 << 15 // 32 KB
+	DefaultWindowSize = 256
+)
+
 type Dialer interface {
 	Dial(network string, address string) (net.Conn, error)
 }
@@ -87,15 +92,19 @@ func WithLogger(logger *zap.Logger) Option {
 
 func defaultOptions(addr string) *Options {
 	return &Options{
-		Addr:       addr,
-		ReadBufLen: 1 << 15, // 32 KB
-		Dialer: &net.Dialer{
-			Timeout: time.Second * 5,
-		},
+		Addr:               addr,
+		ReadBufLen:         DefaultReadBufLen,
+		Dialer:             defaultDialer(),
 		ReconnectBackoffCB: defaultReconnectBackoffCB,
 		ConnStateChangeCB:  nil,
-		WindowSize:         256,
+		WindowSize:         DefaultWindowSize,
 		Logger:             zap.NewNop(),
+	}
+}
+
+func defaultDialer() *net.Dialer {
+	return &net.Dialer{
+		Timeout: time.Second * 5,
 	}
 }
 
