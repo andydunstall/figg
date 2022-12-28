@@ -37,6 +37,10 @@ type connection struct {
 	reader *utils.BufferedReader
 	// writer writes messages to the connection.
 	writer *utils.BufferedWriter
+
+	// outstandingPings is the number of pings that have been sent but not
+	// acknowledged with a pong.
+	outstandingPings int
 }
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
@@ -136,6 +140,35 @@ func (c *connection) Detach(name string) {
 	}
 }
 
+func (c *connection) Ping() error {
+	timestamp := uint64(time.Now().UnixNano())
+
+	c.opts.Logger.Debug(
+		"ping",
+		zap.Uint64("timestamp", timestamp),
+	)
+
+	c.mu.Lock()
+	if c.outstandingPings >= c.opts.MaxPingOut {
+		c.opts.Logger.Warn(
+			"connection closed: ping expired",
+			zap.String("addr", c.opts.Addr),
+		)
+		c.mu.Unlock()
+		c.onDisconnect()
+		return ErrNotConnected
+	}
+	c.mu.Unlock()
+
+	c.send(utils.EncodePingMessage(timestamp))
+
+	c.mu.Lock()
+	c.outstandingPings++
+	c.mu.Unlock()
+
+	return nil
+}
+
 // Read bytes from the connection. Must only be called from a single goroutine.
 func (c *connection) Recv() error {
 	// TODO(AD) not protected (written on reconnect)
@@ -164,6 +197,8 @@ func (c *connection) Recv() error {
 }
 
 func (c *connection) Reconnect() {
+	c.opts.Logger.Debug("reconnect")
+
 	attempts := 0
 	for {
 		// If we are shut down give up.
@@ -200,7 +235,9 @@ func (c *connection) Reconnect() {
 }
 
 func (c *connection) Close() error {
-	c.writer.Close()
+	if c.writer != nil {
+		c.writer.Close()
+	}
 
 	// This will avoid log spam about errors when we shut down.
 	atomic.StoreInt32(&c.shutdown, 1)
@@ -286,6 +323,20 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 			Offset: topicOffset,
 			Data:   data,
 		})
+		return offset
+	case utils.TypePong:
+		timestamp, _ := utils.DecodeUint64(b, offset)
+
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.Duration("rtt", time.Duration(uint64(time.Now().UnixNano())-timestamp)),
+		)
+
+		c.mu.Lock()
+		c.outstandingPings--
+		c.mu.Unlock()
+
 		return offset
 	}
 
@@ -374,5 +425,10 @@ func (c *connection) unsetNetConn() {
 
 	c.conn = nil
 	c.reader = nil
+	if c.writer != nil {
+		c.writer.Close()
+	}
 	c.writer = nil
+
+	c.outstandingPings = 0
 }

@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	DefaultReadBufLen = 1 << 15 // 32 KB
-	DefaultWindowSize = 256
+	DefaultReadBufLen   = 1 << 15 // 32 KB
+	DefaultWindowSize   = 256
+	DefaultPingInterval = 2 * time.Second
+	DefaultMaxPingOut   = 2
 )
 
 type Dialer interface {
@@ -46,6 +48,13 @@ type Options struct {
 	// WindowSize is the number of unacknowledged in-flight messages are allowed
 	// before Publish blocking. Defaults to 256.
 	WindowSize int
+
+	// PingInterval is the time between sending pings. Defaults to 2 seconds.
+	PingInterval time.Duration
+
+	// MaxPingOut is the maximum number of pings that have not received a
+	// pong before determining the connection has dropped. Defaults to 2.
+	MaxPingOut int
 
 	// Logger is a custom logger to log events, which should be configured with
 	// the desired logging level. If nil no logging is used.
@@ -84,6 +93,18 @@ func WithWindowSize(windowSize int) Option {
 	}
 }
 
+func WithPingInterval(pingInterval time.Duration) Option {
+	return func(opts *Options) {
+		opts.PingInterval = pingInterval
+	}
+}
+
+func WithMaxPingOut(maxPingOut int) Option {
+	return func(opts *Options) {
+		opts.MaxPingOut = maxPingOut
+	}
+}
+
 func WithLogger(logger *zap.Logger) Option {
 	return func(opts *Options) {
 		opts.Logger = logger
@@ -98,6 +119,8 @@ func defaultOptions(addr string) *Options {
 		ReconnectBackoffCB: defaultReconnectBackoffCB,
 		ConnStateChangeCB:  nil,
 		WindowSize:         DefaultWindowSize,
+		PingInterval:       DefaultPingInterval,
+		MaxPingOut:         DefaultMaxPingOut,
 		Logger:             zap.NewNop(),
 	}
 }

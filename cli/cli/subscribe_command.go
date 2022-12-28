@@ -37,7 +37,10 @@ func (c *SubscribeCommand) CobraCommand() *cobra.Command {
 }
 
 func (c *SubscribeCommand) run(topic string) error {
-	client, err := figg.Connect(c.Config.Addr)
+	client, err := figg.Connect(
+		c.Config.Addr,
+		figg.WithLogger(setupLogger(c.Config.Verbose)),
+	)
 	if err != nil {
 		return err
 	}
