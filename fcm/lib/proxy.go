@@ -20,6 +20,14 @@ func NewProxy(listener net.Listener, targetAddr string) (*Proxy, error) {
 	return p, nil
 }
 
+// DropActive drops all packets from existing connections but does not close
+// them.
+func (p *Proxy) DropActive() {
+	for conn, _ := range p.conns {
+		conn.Drop()
+	}
+}
+
 func (p *Proxy) Close() error {
 	if err := p.listener.Close(); err != nil {
 		return err
