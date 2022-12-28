@@ -47,10 +47,11 @@ func (w *BufferedWriter) Write(bufs ...[]byte) error {
 
 func (w *BufferedWriter) Close() error {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.closed = true
 	// Signal the write loop so it closes.
 	w.cv.Signal()
-	w.mu.Unlock()
 	return nil
 }
 
@@ -58,18 +59,11 @@ func (w *BufferedWriter) writeLoop() {
 	defer w.wg.Done()
 
 	for {
-		w.mu.Lock()
-		if w.closed {
+		buf, ok := w.nextBuf()
+		if !ok {
 			return
 		}
-		// Since we can miss signals when processing the buffer, must only
-		// block if buf is empty.
-		if len(w.buf) == 0 {
-			w.cv.Wait()
-		}
-		w.mu.Unlock()
 
-		buf := net.Buffers(w.takeBuf())
 		if _, err := buf.WriteTo(w.w); err != nil {
 			// If we get a write error, expect the server/client will close the
 			// connection so exit.
@@ -78,11 +72,21 @@ func (w *BufferedWriter) writeLoop() {
 	}
 }
 
-func (w *BufferedWriter) takeBuf() [][]byte {
+func (w *BufferedWriter) nextBuf() (net.Buffers, bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	buf := w.buf
+	if w.closed {
+		return nil, false
+	}
+
+	// Since we can miss signals when processing the buffer, must only
+	// block if buf is empty.
+	if len(w.buf) == 0 {
+		w.cv.Wait()
+	}
+
+	buf := net.Buffers(w.buf)
 	w.buf = [][]byte{}
-	return buf
+	return buf, true
 }
