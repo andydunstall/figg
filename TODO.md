@@ -1,8 +1,8 @@
 # TODO
 
 ## SDK
-* Fix flaky system tests
-* Ensure thread safe (currently connection isn't)
+* Refactor: currently the sdk connection has become too complex and needs some
+refactoring
 * Add long running tests
   * Use cli stream with chaos and run for hours to check no leaks or race
       conditions (use `-race`)
