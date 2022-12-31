@@ -20,6 +20,11 @@ pushd cli
 	echo "cli ok"
 popd
 
+pushd bench
+	go fmt ./... || exit 1
+	echo "bench ok"
+popd
+
 pushd fcm/server
 	go fmt ./... || exit 1
 	echo "fcm/server ok"

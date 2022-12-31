@@ -13,6 +13,7 @@ can start subscribing from an old message.
 * [`server/`](./server): Backend Figg server,
 * [`sdk/`](./sdk): Go SDK client library,
 * [`cli/`](./cli): Figg CLI,
+* [`bench/`](./bench): Benchmarking,
 * [`docs/`](./docs): Documentation on usage and architecture,
 * [`tests/`](./tests): System tests,
 * [`fcm/`](./fcm): Figg cluster manager, used for system tests and chaos testing.
@@ -45,15 +46,10 @@ client.Publish("foo", []byte("bar"))
 ```
 
 ## Benchmarking
-The main benchmarks are ran with `./bin/cli.sh bench` which runs scenarios:
-* Publish: Publishes N messages and waits for the final message to be
-acknowledged,
-* Subscribe: Publishes N messages on one connection and waits for another
-connection to receive all of the published messages,
-* Resume: Subscribes to a topic that already has N messages and subscribes
-from an offset of 0 and waits for all the N messages to be received.
+Benchmarks against the Figg service are run with `bin/figg-bench` (see
+[`bench/`](./bench)).
 
-Some performance critical components also have benchmark tests ran with
+Some performance critical components also have Go benchmark tests ran with
 `go test` or `./bin/bench.sh`.
 
 ## Testing
