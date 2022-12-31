@@ -15,6 +15,11 @@ pushd cli
 	echo "cli ok"
 popd
 
+pushd bench
+	go build ./... || exit 1
+	echo "bench ok"
+popd
+
 pushd fcm/lib
 	go build ./... || exit 1
 	echo "fcm/lib ok"

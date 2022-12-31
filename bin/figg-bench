@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cd bench
+go run main.go $@
