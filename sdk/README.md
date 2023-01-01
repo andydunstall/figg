@@ -2,9 +2,7 @@
 
 ## Usage
 ### Connect
-Users start by connecting to the Figg node.
-
-Note though the user waits for the initial connection to succeed, if the
+Note though `Connect` waits for the initial connection to succeed, if the
 connection drops the SDK will automatically reconnect.
 
 ```go
@@ -19,12 +17,17 @@ if err != nil {
 }
 ```
 
+Options can be provided, such as `WithReadBufLen`, described in `options.go`
+
 ### Subscribe
-Subscribe to a topic. Once subscribed the client ensure no messages are dropped,
-even if the clients connection is dropped.
+Subscribe to a topic to receive all messages published on that topic using
+`Subscribe(name string, onMessage MessageCB, options ...TopicOption)`. Once
+subscribed the SDK ensures no messages are dropped by recovering missed
+messages while the client was disconnected.
+
+`Subscribe` blocks until the server confirms the subscription is setup.
 
 ```go
-// Subscribe. Blocks until the server confirms the subscription is setup.
 err := client.Subscribe("foo", func(m figg.Message)) {
 	fmt.Println("message: ", string(m.Data), "offset: ", m.Offset)
 })
@@ -33,30 +36,30 @@ if err != nil {
 }
 ```
 
-Messages received by the subscriber include a `Data` field containing the
-published data, and an `Offset` field which can be used to subscribe from a new
-client without missing messages. Such as may persist the offset and subscriber
-later with no dropped messages while disconnected.
+`figg.Message` is described in `message.go`. This contains both a `Data` field
+containing the published data, and an `Offset` field which points to the
+location of next message in the topic.
 
-Note the format of the `Offset` field is defined by the server so should only
-use an offset of a received message rather than calculating it yourself. Such
-as some bits are reserved for using as flags so its not nessesarily sequential.
-
-```go
-// Subscribe from offset.
-err := client.Subscribe("bar", func(m figg.Message), WithOffset(offset)) {
-	fmt.Println("message: ", string(m.Data), "offset: ", m.Offset)
-})
-if err != nil {
-	// handle err
-}
-```
+The SDK uses this offset to automatically recover missed messages when the
+connection is dropped, but it can also be passed as an option to `Subscribe`
+using `WithOffset` to continue from an old message (such as may persist the
+offset of the last message received to resume later).
 
 ### Publish
-Publish a message to topic `foo`:
-
+Publish a message to topic `foo` using
+`Publish(name string, data []byte, onACK func())`.
 ```go
-client.Publish("foo", []byte("bar"))
+client.Publish("foo", []byte("bar"), func() {
+	fmt.Println("message acked")
+})
 ```
 
-This will block until the server has acknowledged the published mesage.
+To acheive high thoughput the SDK supports sending multiple message before
+the first has been acknowledged (similar to TCP), though does have a limit on
+the number of unacknowledged messages (configured with `WithWindowSize`). If
+the clients connection drops all unacknowledged will be retried (in order).
+
+If its important to wait for each message to be acknowledged before sending the
+next a wrapper `PublishWaitForACK` can be used.
+
+Note you do not need to be subscribed to publish a message to a topic.
