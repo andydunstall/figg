@@ -1,7 +1,9 @@
 # Figg
-Figg is a simple pub/sub messaging service. It has no fault tolerance or
-replication and just runs on a single node. This is just a project I'm building
-to practice Go and systems performance.
+Figg is a simple pub/sub messaging service.
+
+This is just a project I'm building for fun and practice Go systems performance,
+so is missing lots of features needed to run in production, and only supports
+a single node so no fault tolerance or partitioning yet.
 
 ## Features
 * Message continuity: If subscribers connections drop they automatically
@@ -21,9 +23,11 @@ testing.
 
 ## Usage
 ### Server
-The [`Figg server`](./server) can be started with `./bin/figg.sh`, or compile
-the package in [`./server`](./server) with `go build ./...`. For now all
-configuration is passed via the command line.
+The Figg [`server`](./server) can be started with `./bin/figg.sh` for local
+testing (which uses `go run`) or compile the package in [`./server`](./server).
+
+For now all configuration is passed via the command line, whose options can be
+seen with `server -h`.
 
 ### Client
 See [`sdk/`](./sdk) for full usage.
@@ -43,6 +47,7 @@ if err != nil {
 	// handle err
 }
 
+// Publish message bar to topic foo.
 client.Publish("foo", []byte("bar"), func() {
 	fmt.Println("message acked")
 })
@@ -50,38 +55,29 @@ client.Publish("foo", []byte("bar"), func() {
 
 ## Benchmarking
 Benchmarks against the Figg service are run with `bin/figg-bench` (see
-[`bench/`](./bench)).
+[`bench/`](./bench) for details).
 
 Some performance critical components also have Go benchmark tests ran with
 `go test` or `./bin/bench.sh`.
 
 ## Testing
-The server and SDK aims for high unit test coverage where possible which are
-included in the [`server/`](./server) and [`sdk`](./sdk) packages alongside
-the code itself.
+The server and SDK have high unit test coverage included alongside the packages
+using `go test`.
 
-Though some end-to-end system tests are needed to:
+Some end-to-end system tests are needed to:
 * Check components are properly integrated,
-* Inject chaos into a cluster to check for issues overlooked in the design.
+* Inject chaos into a cluster.
 
-These tests are in [`tests/`](./tests). [`FCM`](./fcm) is used to create Figg
-clusters locally and inject chaos, which is used both for testing the server
-and the SDK.
+These system tests are in [`tests/`](./tests). [`FCM`](./fcm) is used to create
+Figg clusters locally, which proxies network traffic to inject chaos.
 
 ### Manual Testing
-Although most behaviours should have automated tests its often useful to run
-tests manually. Theres tools in [`cli/`](./cli) and [`fcm/`](./fcm) to make
-this easy.
+Theres tools in [`cli/`](./cli) and [`fcm/`](./fcm) to easily spin up notes
+and inject chaos.
 
-Such as to check no messages are dropped when the subscriber disconnects, can
-spin up a Figg node with FCM, inject a partition into the nodes proxy for
-2 seconds every 10 seconds, and stream messages from a subscriber connected
-to the proxy.
+Such can use FCM to add a node and drop the network for 2 seconds every
+10 seconds with:
 ```bash
-
-# Start FCM
-./bin/fcm.sh
-
 # Create a Figg node.
 $ ./bin/fcm-cli.sh cluster create
 
@@ -95,8 +91,15 @@ $ ./bin/fcm-cli.sh cluster create
 
 # Inject a partition every 10 seconds that lasts for 2 seconds.
 $ ./bin/fcm-cli.sh chaos partition --node 72c6dcb8 --duration 2 --repeat 10
+```
 
-# Start the CLI to stream messages every 100ms. This will throw an error if it
+Then use the CLI to stream messages, pointing the subscriber at the proxied
+server which will drop networking, and the publisher at the non-proxied server
+so messages continue to be published even while the subscriber is disconnected.
+`figg-cli stream` will check the next message follows from the previous message
+without dropping (by comparing offsets).
+```bash
+# Start the CLI to stream messages every 10ms. This will throw an error if it
 # detects out of order messages.
 $ ./bin/cli.sh stream --sub-addr 127.0.0.1:40001 --pub-addr 127.0.0.1:40000
 pub state CONNECTED
