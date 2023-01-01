@@ -6,20 +6,21 @@ to practice Go and systems performance.
 ## Features
 * Message continuity: If subscribers connections drop they automatically
 reconnect and resume any missed messages,
-* Message retention: Messages are persisted to a commit log so subscribers
+* Message history: Messages are persisted to a commit log on disk so subscribers
 can start subscribing from an old message.
 
 ## Components
 * [`server/`](./server): Backend Figg server,
 * [`sdk/`](./sdk): Go SDK client library,
 * [`cli/`](./cli): Figg CLI,
-* [`bench/`](./bench): Benchmarking,
+* [`bench/`](./bench): Figg benchmarking client,
 * [`docs/`](./docs): Documentation on usage and architecture,
 * [`tests/`](./tests): System tests,
-* [`fcm/`](./fcm): Figg cluster manager, used for system tests and chaos testing.
+* [`fcm/`](./fcm): Figg cluster manager, used for system tests and manual chaos
+testing.
 
 ## Usage
-### Service
+### Server
 The [`Figg server`](./server) can be started with `./bin/figg.sh`, or compile
 the package in [`./server`](./server) with `go build ./...`. For now all
 configuration is passed via the command line.
@@ -42,7 +43,9 @@ if err != nil {
 	// handle err
 }
 
-client.Publish("foo", []byte("bar"))
+client.Publish("foo", []byte("bar"), func() {
+	fmt.Println("message acked")
+})
 ```
 
 ## Benchmarking
@@ -60,6 +63,7 @@ the code itself.
 Though some end-to-end system tests are needed to:
 * Check components are properly integrated,
 * Inject chaos into a cluster to check for issues overlooked in the design.
+
 These tests are in [`tests/`](./tests). [`FCM`](./fcm) is used to create Figg
 clusters locally and inject chaos, which is used both for testing the server
 and the SDK.
