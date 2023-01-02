@@ -138,12 +138,16 @@ func (c *connection) Detach(name string) {
 
 // Read bytes from the connection. Must only be called from a single goroutine.
 func (c *connection) Recv() error {
-	// TODO(AD) not protected (written on reconnect)
-	if c.reader == nil {
+	// Copy to avoid locking during IO.
+	c.mu.Lock()
+	reader := c.reader
+	c.mu.Unlock()
+
+	if reader == nil {
 		return ErrNotConnected
 	}
 
-	messageType, payload, err := c.reader.Read()
+	messageType, payload, err := reader.Read()
 	if err != nil {
 		// Avoid logging if we are shutdown.
 		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
@@ -200,14 +204,13 @@ func (c *connection) Reconnect() {
 }
 
 func (c *connection) Close() error {
-	c.writer.Close()
-
 	// This will avoid log spam about errors when we shut down.
 	atomic.StoreInt32(&c.shutdown, 1)
 
 	close(c.done)
 
-	return c.onDisconnect()
+	c.onDisconnect()
+	return nil
 }
 
 func (c *connection) send(bufs ...[]byte) error {
@@ -295,10 +298,6 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 func (c *connection) onConnect(conn net.Conn) {
 	c.setNetConn(conn)
 
-	if c.onStateChange != nil {
-		c.onStateChange(CONNECTED)
-	}
-
 	for _, att := range c.attachments.Attaching() {
 		if att.FromOffset {
 			c.send(utils.EncodeAttachFromOffsetMessage(att.Name, att.Offset))
@@ -343,36 +342,45 @@ func (c *connection) onConnect(conn net.Conn) {
 	}
 }
 
-func (c *connection) onDisconnect() error {
-	if c.conn == nil {
-		return nil
-	}
-
-	err := c.conn.Close()
-
+func (c *connection) onDisconnect() {
 	c.unsetNetConn()
-
-	if c.onStateChange != nil {
-		c.onStateChange(DISCONNECTED)
-	}
-
-	return err
 }
 
 func (c *connection) setNetConn(conn net.Conn) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	wasDisconnected := c.conn == nil
+
 	c.conn = conn
 	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
 	c.writer = utils.NewBufferedWriter(conn)
+
+	// Note emit events holding mu to ensure events are ordered. Also check
+	// if we we're disconnected to avoid duplicate CONNECTED events.
+	if wasDisconnected && c.onStateChange != nil {
+		c.onStateChange(CONNECTED)
+	}
 }
 
 func (c *connection) unsetNetConn() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Already disconnected so nothing to do.
+	if c.conn == nil {
+		return
+	}
+
+	c.writer.Close()
+	c.conn.Close()
+
 	c.conn = nil
 	c.reader = nil
 	c.writer = nil
+
+	// Note emit events holding mu to ensure events are ordered.
+	if c.onStateChange != nil {
+		c.onStateChange(DISCONNECTED)
+	}
 }
