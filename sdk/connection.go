@@ -37,6 +37,10 @@ type connection struct {
 	reader *utils.BufferedReader
 	// writer writes messages to the connection.
 	writer *utils.BufferedWriter
+
+	// outstandingPings is the number of pings that have been sent but not
+	// acknowledged with a pong.
+	outstandingPings int
 }
 
 func newConnection(onStateChange func(state ConnState), opts *Options) *connection {
@@ -136,6 +140,35 @@ func (c *connection) Detach(name string) {
 	}
 }
 
+func (c *connection) Ping() error {
+	timestamp := uint64(time.Now().UnixNano())
+
+	c.opts.Logger.Debug(
+		"ping",
+		zap.Uint64("timestamp", timestamp),
+	)
+
+	c.mu.Lock()
+	if c.outstandingPings >= c.opts.MaxPingOut {
+		c.opts.Logger.Warn(
+			"connection closed: ping expired",
+			zap.String("addr", c.opts.Addr),
+		)
+		c.mu.Unlock()
+		c.onDisconnect()
+		return ErrNotConnected
+	}
+	c.mu.Unlock()
+
+	c.send(utils.EncodePingMessage(timestamp))
+
+	c.mu.Lock()
+	c.outstandingPings++
+	c.mu.Unlock()
+
+	return nil
+}
+
 // Read bytes from the connection. Must only be called from a single goroutine.
 func (c *connection) Recv() error {
 	// Copy to avoid locking during IO.
@@ -151,6 +184,7 @@ func (c *connection) Recv() error {
 	if err != nil {
 		// Avoid logging if we are shutdown.
 		if s := atomic.LoadInt32(&c.shutdown); s == 1 {
+			c.onDisconnect()
 			return err
 		}
 		c.opts.Logger.Warn(
@@ -167,7 +201,11 @@ func (c *connection) Recv() error {
 	return nil
 }
 
+// Reconnect reconnects to the server. Note this must only be called by a single
+// goroutine (the read loop).
 func (c *connection) Reconnect() {
+	c.opts.Logger.Debug("reconnect")
+
 	attempts := 0
 	for {
 		// If we are shut down give up.
@@ -290,6 +328,20 @@ func (c *connection) onMessage(messageType utils.MessageType, b []byte) int {
 			Data:   data,
 		})
 		return offset
+	case utils.TypePong:
+		timestamp, _ := utils.DecodeUint64(b, offset)
+
+		c.opts.Logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.Duration("rtt", time.Duration(uint64(time.Now().UnixNano())-timestamp)),
+		)
+
+		c.mu.Lock()
+		c.outstandingPings--
+		c.mu.Unlock()
+
+		return offset
 	}
 
 	return 0
@@ -350,15 +402,13 @@ func (c *connection) setNetConn(conn net.Conn) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	wasDisconnected := c.conn == nil
-
 	c.conn = conn
 	c.reader = utils.NewBufferedReader(conn, c.opts.ReadBufLen)
 	c.writer = utils.NewBufferedWriter(conn)
 
 	// Note emit events holding mu to ensure events are ordered. Also check
 	// if we we're disconnected to avoid duplicate CONNECTED events.
-	if wasDisconnected && c.onStateChange != nil {
+	if c.onStateChange != nil {
 		c.onStateChange(CONNECTED)
 	}
 }
@@ -378,6 +428,7 @@ func (c *connection) unsetNetConn() {
 	c.conn = nil
 	c.reader = nil
 	c.writer = nil
+	c.outstandingPings = 0
 
 	// Note emit events holding mu to ensure events are ordered.
 	if c.onStateChange != nil {

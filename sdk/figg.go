@@ -46,6 +46,9 @@ func Connect(addr string, options ...Option) (*Figg, error) {
 	figg.wg.Add(1)
 	go figg.readLoop()
 
+	figg.wg.Add(1)
+	go figg.pingLoop()
+
 	return figg, nil
 }
 
@@ -129,6 +132,21 @@ func (f *Figg) readLoop() {
 
 			f.conn.Reconnect()
 		}
+	}
+}
+
+func (f *Figg) pingLoop() {
+	defer f.wg.Done()
+
+	for {
+		if s := atomic.LoadInt32(&f.shutdown); s == 1 {
+			return
+		}
+
+		<-time.After(f.opts.PingInterval)
+		// Note don't need to reconnect. If the ping expires it will close
+		// the connection causing the read loop to reconnect.
+		f.conn.Ping()
 	}
 }
 

@@ -129,6 +129,13 @@ func (n *Node) PartitionFor(duration int) {
 	}
 }
 
+func (n *Node) DropActive() {
+	<-time.After(time.Second)  // TODO(AD) tmp
+
+	fmt.Println("drop active")
+	n.proxy.DropActive()
+}
+
 func (n *Node) Shutdown() error {
 	if err := n.proxy.Close(); err != nil {
 		return err
