@@ -257,3 +257,25 @@ func EncodeDataMessagePrefix(topic string, topicOffset uint64, data []byte) []by
 
 	return buf
 }
+
+func EncodePingMessage(timestamp uint64) []byte {
+	payloadLen := uint64Len
+
+	buf := make([]byte, HeaderLen+payloadLen)
+	offset := EncodeHeader(buf, 0, TypePing, uint32(payloadLen))
+
+	EncodeUint64(buf, offset, timestamp)
+
+	return buf
+}
+
+func EncodePongMessage(timestamp uint64) []byte {
+	payloadLen := uint64Len
+
+	buf := make([]byte, HeaderLen+payloadLen)
+	offset := EncodeHeader(buf, 0, TypePong, uint32(payloadLen))
+
+	EncodeUint64(buf, offset, timestamp)
+
+	return buf
+}

@@ -109,6 +109,16 @@ func (c *Connection) onMessage(messageType utils.MessageType, b []byte) {
 		topic.Publish(data)
 
 		c.writer.Write(utils.EncodeACKMessage(seqNum))
+	case utils.TypePing:
+		timestamp, _ := utils.DecodeUint64(b, offset)
+
+		c.logger.Debug(
+			"on message",
+			zap.String("message-type", messageType.String()),
+			zap.Uint64("timestamp", timestamp),
+		)
+
+		c.writer.Write(utils.EncodePongMessage(timestamp))
 	}
 }
 
