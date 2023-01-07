@@ -5,9 +5,9 @@ pushd server
 	echo "server ok"
 popd
 
-pushd sdk
+pushd sdk/go
 	go fmt ./... || exit 1
-	echo "sdk ok"
+	echo "sdk/go ok"
 popd
 
 pushd utils

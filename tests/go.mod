@@ -2,9 +2,9 @@ module github.com/andydunstall/figg/tests
 
 go 1.19
 
-require github.com/andydunstall/figg/sdk v0.0.0
+require github.com/andydunstall/figg/sdk/go v0.0.0
 
-replace github.com/andydunstall/figg/sdk => ../sdk
+replace github.com/andydunstall/figg/sdk/go => ../sdk/go
 
 require (
 	github.com/andydunstall/figg/fcm/sdk v0.0.0

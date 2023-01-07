@@ -1,4 +1,4 @@
-module github.com/andydunstall/figg/sdk
+module github.com/andydunstall/figg/sdk/go
 
 go 1.19
 
@@ -14,4 +14,4 @@ require (
 )
 
 require github.com/andydunstall/figg/utils v0.0.0
-replace github.com/andydunstall/figg/utils v0.0.0 => ../utils
+replace github.com/andydunstall/figg/utils v0.0.0 => ../../utils

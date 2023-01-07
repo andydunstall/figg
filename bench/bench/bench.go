@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	figg "github.com/andydunstall/figg/sdk"
+	figg "github.com/andydunstall/figg/sdk/go"
 )
 
 func Bench(config *Config) error {
