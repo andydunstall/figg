@@ -16,6 +16,7 @@ type Config struct {
 	Publishers  int    `long:"pubs" description:"Number of concurrent publishers" default:"1"`
 	Subscribers int    `long:"subs" description:"Number of concurrent subscribers" default:"1"`
 	Resumers    int    `long:"resumers" description:"Number of concurrent resumers (subscribers that start subscribing after all messages published)" default:"1"`
+	Runs        int    `long:"runs" description:"Number of times to run the benchmark" default:"1"`
 
 	Addr string `long:"addr" description:"Address of the Figg server" default:"127.0.0.1:8119"`
 
@@ -24,7 +25,7 @@ type Config struct {
 
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"msgs=%s msg-size=%s topic=%s addr=%s publishers=%d subscribers=%d resumers=%d",
+		"msgs=%s msg-size=%s topic=%s addr=%s publishers=%d subscribers=%d resumers=%d runs=%d",
 		humanize.Comma(int64(c.Messages)),
 		strings.ReplaceAll(humanize.Bytes(uint64(c.MessageSize)), " ", ""),
 		c.Topic,
@@ -32,6 +33,7 @@ func (c Config) String() string {
 		c.Publishers,
 		c.Subscribers,
 		c.Resumers,
+		c.Runs,
 	)
 }
 
@@ -50,6 +52,9 @@ func ParseConfig() (*Config, error) {
 	}
 	if config.Publishers <= 0 {
 		return nil, fmt.Errorf("publishers must be positive")
+	}
+	if config.Runs <= 0 {
+		return nil, fmt.Errorf("runs must be positive")
 	}
 
 	if config.Topic == "" {
