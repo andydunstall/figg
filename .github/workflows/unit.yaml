@@ -14,7 +14,7 @@ jobs:
           go-version: 1.19
 
       - name: Build
-        run: ./bin/build.sh
+        run: ./build/build.sh
 
       - name: Test
-        run: ./bin/test.sh
+        run: ./build/test.sh
