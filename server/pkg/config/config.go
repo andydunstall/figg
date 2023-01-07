@@ -12,7 +12,7 @@ type Config struct {
 
 	CommitLogInMemory    bool   `long:"commitlog.inmemory" description:"Whether the commit log should be in-memory only"`
 	CommitLogDir         string `long:"commitlog.dir" description:"The directory to store the commit log segments if persisted" default:"./data"`
-	CommitLogSegmentSize uint64 `long:"commitlog.segment-size" description:"The size of the commit log segments to use" default:"4194304"`
+	CommitLogSegmentSize uint64 `long:"commitlog.segment-size" description:"The size of the commit log segments to use (default 128MB)" default:"134217728"`
 
 	Verbose bool `short:"v" long:"verbose" description:"Show verbose debug information"`
 }

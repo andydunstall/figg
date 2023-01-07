@@ -40,6 +40,8 @@ func main() {
 	}
 	defer logger.Sync()
 
+	logger.Info("starting figg server", zap.Object("config", config))
+
 	messagingService := messagingService.NewMessagingService(config, logger)
 	_, err = messagingService.Serve()
 	if err != nil {
