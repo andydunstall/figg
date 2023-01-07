@@ -62,6 +62,7 @@ func (c *Connection) SendDataMessage(m topic.Message) {
 
 func (c *Connection) Close() error {
 	c.writer.Close()
+	c.subscriptions.UnsubscribeAll()
 	return c.conn.Close()
 }
 
