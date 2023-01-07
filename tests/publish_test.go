@@ -6,7 +6,7 @@ import (
 	"time"
 
 	fcm "github.com/andydunstall/figg/fcm/lib"
-	figg "github.com/andydunstall/figg/sdk"
+	figg "github.com/andydunstall/figg/sdk/go"
 	"github.com/stretchr/testify/assert"
 )
 

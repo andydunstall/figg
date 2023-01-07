@@ -1,7 +1,7 @@
 package cli
 
 import (
-	figg "github.com/andydunstall/figg/sdk"
+	figg "github.com/andydunstall/figg/sdk/go"
 	"github.com/spf13/cobra"
 )
 
