@@ -23,7 +23,7 @@ testing.
 
 ## Usage
 ### Server
-The Figg [`server`](./server) can be started with `./bin/figg.sh` for local
+The Figg [`server`](./server) can be started with `./bin/figg-server` for local
 testing (which uses `go run`) or compile the package in [`./server`](./server).
 
 For now all configuration is passed via the command line, whose options can be
@@ -58,7 +58,7 @@ Benchmarks against the Figg service are run with `bin/figg-bench` (see
 [`bench/`](./bench) for details).
 
 Some performance critical components also have Go benchmark tests ran with
-`go test` or `./bin/bench.sh`.
+`go test` or `./build/bench.sh`.
 
 ## Testing
 The server and SDK have high unit test coverage included alongside the packages
@@ -79,7 +79,7 @@ Such can use FCM to add a node and drop the network for 2 seconds every
 10 seconds with:
 ```bash
 # Create a Figg node.
-$ ./bin/fcm-cli.sh cluster create
+$ ./bin/fcm-cli cluster create
 
     Cluster
     -------
@@ -90,7 +90,7 @@ $ ./bin/fcm-cli.sh cluster create
     ID:  72c6dcb8 | Addr: 127.0.0.1:40000 | Proxy Addr: 127.0.0.1:40001
 
 # Inject a partition every 10 seconds that lasts for 2 seconds.
-$ ./bin/fcm-cli.sh chaos partition --node 72c6dcb8 --duration 2 --repeat 10
+$ ./bin/fcm-cli chaos partition --node 72c6dcb8 --duration 2 --repeat 10
 ```
 
 Then use the CLI to stream messages, pointing the subscriber at the proxied
@@ -101,7 +101,7 @@ without dropping (by comparing offsets).
 ```bash
 # Start the CLI to stream messages every 10ms. This will throw an error if it
 # detects out of order messages.
-$ ./bin/cli.sh stream --sub-addr 127.0.0.1:40001 --pub-addr 127.0.0.1:40000
+$ ./bin/cli stream --sub-addr 127.0.0.1:40001 --pub-addr 127.0.0.1:40000
 pub state CONNECTED
 sub state CONNECTED
 received 50

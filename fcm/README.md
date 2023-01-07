@@ -23,7 +23,7 @@ cluster at the moment.*
 This shows the CLI commands to interract with FCM. Theres also a [Go SDK](./sdk)
 used for system tests, and FCM exposed a REST API to create new clients.
 
-Note can call with `bin/fcm-cli.sh` to avoid having to recompile.
+Note can call with `bin/fcm-cli` to avoid having to recompile.
 
 These commands require FCM to be running (`bin/fcm.sh`).
 
