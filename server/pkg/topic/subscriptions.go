@@ -28,7 +28,7 @@ func (s *Subscriptions) AddSubscriptionFromOffset(topicName string, lastOffset u
 	return offset
 }
 
-func (s *Subscriptions) Shutdown() {
+func (s *Subscriptions) UnsubscribeAll() {
 	for sub, _ := range s.subscriptions {
 		sub.Shutdown()
 	}
