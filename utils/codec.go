@@ -56,7 +56,7 @@ func DecodeUint32(buf []byte, offset int) (uint32, int) {
 }
 
 func EncodeUint64(buf []byte, offset int, n uint64) int {
-	if len(buf) < offset+uint32Len {
+	if len(buf) < offset+uint64Len {
 		panic("buf too small; cannot encode uint64")
 	}
 
